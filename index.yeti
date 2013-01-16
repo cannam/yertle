@@ -1,0 +1,58 @@
+
+module index;
+
+tr = load hashtree;
+
+typedef stmt = {
+   s is URI string | Blank number,
+   p is URI string,
+   o is URI string | Blank number | Literal { value is string, type is string },
+};
+
+typedef template = {
+   s is Wildcard () | URI string | Blank number,
+   p is Wildcard () | URI string,
+   o is Wildcard () | URI string | Blank number | Literal { value is string, type is string }
+};
+
+newIndex type = {
+    order =
+    case type of 
+       SPO (): [ (.s), (.p), (.o) ];
+       SOP (): [ (.s), (.o), (.p) ];
+       PSO (): [ (.p), (.s), (.o) ];
+       POS (): [ (.p), (.o), (.s) ];
+       OPS (): [ (.o), (.p), (.s) ];
+       OSP (): [ (.o), (.s), (.p) ];
+       SP  (): [ (.s), (.p) ];
+    esac,
+    tree = tr.empty (),
+};
+
+insert ix stmt = tr.addList ix.tree (map do s: s stmt done ix.order);
+
+add index statement =
+    case index.order of
+    selector::rest:
+        node = selector statement;
+        if not node in index.tree then 
+            if empty? rest then 
+                index.tree[node] := Whole statement;
+                true;
+            else
+                sub = [:];
+                index.tree[node] := Sub sub;
+                add { order = rest, tree = sub } statement;
+            fi;
+        else
+            case index.tree[node] of
+                Sub sub: add { order = rest, tree = sub } statement;
+                Whole _: empty? rest;
+            esac;
+        fi;
+    _: false;
+    esac;
+
+{ newIndex, insert, add }
+
+

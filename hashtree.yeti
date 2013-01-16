@@ -47,5 +47,5 @@ enumerate tree is hashtree -> list<'a> =
             esac
         done (keys tree));
 
-{ empty, addList = addList, exactMatch, enumerate }
+{ empty, addList, exactMatch, enumerate }
 
