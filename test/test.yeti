@@ -1,0 +1,44 @@
+
+module test.test;
+
+assert truth explanation =
+    if truth then
+        true;
+    else
+        println "** assertion failed: \(explanation)";
+        false;
+    fi;
+
+compare obtained expected =
+    if obtained == expected then
+        true;
+    else
+        println "** expected: \(expected)\n   obtained: \(obtained)";
+        false;
+    fi;
+
+select f = fold do r x: if f x then x::r else r fi done [];
+
+failedTests testHash =
+    select (!= "")
+       (mapHash do name f:
+            if f () then "" else
+                println "Test \(name) failed";
+                name;
+            fi 
+        done testHash);
+        
+runTests group testHash =
+   (failed = failedTests testHash;
+    good = (length testHash - length failed);
+    bad = length failed;
+    println "\(group): \(good)/\(good+bad) tests passed";
+    if not empty? failed then
+        println "\(group): Failed tests [\(bad)]: \(strJoin ' ' failed)";
+    fi;
+    bad);
+
+{
+    assert, compare, failedTests, runTests
+}
+

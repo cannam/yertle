@@ -1,34 +1,53 @@
 module hashtree;
 
-typedef hashtree = hash<string, Sub 'a | Ends ()>;
+typedef hashtree = hash<'a, Sub 'b | Ends ()>;
 
-addLeaf tree value = tree[value] := Ends ();
+empty () = [:];
 
-addList tree lst is hashtree -> list<string> -> () = 
+addList tree lst is hashtree -> list<'a> -> boolean = 
     case lst of
     [leaf]:
-        addLeaf tree leaf;
+        if leaf in tree then 
+            case tree[leaf] of
+                Sub _: false;
+                Ends (): true;
+            esac
+        else
+            tree[leaf] := Ends ();
+            true;
+        fi;
     node::rest:
         if not node in tree then 
             tree[node] := Sub [:]
         fi;
         case tree[node] of 
             Sub subtree: addList subtree rest;
-            _: (); //!!! This is an error -- inconsistent subtree
+            Ends (): false;
         esac;
-    _: ();
+    _:  false; 
     esac;
 
-exactMatch tree lst is hashtree -> list<string> -> boolean =
+exactMatch tree lst is hashtree -> list<'a> -> boolean =
     case lst of
-    [leaf]:
-        if not leaf in tree then false
-        else case tree[leaf] of Sub _: false; Ends _: true esac fi;
     node::rest:
         if not node in tree then false
-        else case tree[node] of Sub sub: exactMatch sub rest; Ends _: false esac fi;
+        else
+            case tree[node] of
+                Sub sub: exactMatch sub rest;
+                Ends (): empty? rest;
+            esac
+        fi;
     _: false;
     esac;
 
-{ addLeaf, addList, exactMatch }
+enumerate tree is hashtree -> list<'a> =
+    concat
+       (map do k:
+            case tree[k] of
+            Sub sub: map do t: k::t done (enumerate sub);
+                  _: [[k]];
+            esac
+        done (keys tree));
+
+{ empty, addList, exactMatch, enumerate }
 
