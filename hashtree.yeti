@@ -6,24 +6,22 @@ empty () = [:];
 
 addList tree lst is hashtree -> list<'a> -> boolean = 
     case lst of
-    [leaf]:
-        if leaf in tree then 
-            case tree[leaf] of
-                Sub _: false;
-                Ends (): true;
-            esac
-        else
-            tree[leaf] := Ends ();
-            true;
-        fi;
     node::rest:
         if not node in tree then 
-            tree[node] := Sub [:]
+            if empty? rest then
+                tree[node] := Ends ();
+                true;
+            else
+                sub = [:];
+                tree[node] := Sub sub;
+                addList sub rest;
+            fi;
+        else
+            case tree[node] of 
+                Sub sub: addList sub rest;
+                Ends (): empty? rest;
+            esac;
         fi;
-        case tree[node] of 
-            Sub subtree: addList subtree rest;
-            Ends (): false;
-        esac;
     _:  false; 
     esac;
 
@@ -49,5 +47,5 @@ enumerate tree is hashtree -> list<'a> =
             esac
         done (keys tree));
 
-{ empty, addList, exactMatch, enumerate }
+{ empty, addList = addList, exactMatch, enumerate }
 
