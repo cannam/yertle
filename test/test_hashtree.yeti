@@ -83,6 +83,7 @@ compareUnordered a b = if cmp a b then true else compare a b fi;
        exactMatch h [2,1] and
        not exactMatch h [1,3] and
        exactMatch h [1,3,4] and
+       not exactMatch h [1,2,3,4] and
        not exactMatch h []
 ),
 
