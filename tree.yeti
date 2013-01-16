@@ -1,0 +1,21 @@
+module tree;
+
+leaf value = { value, var left = None (), var right = None () };
+
+addTo tree value = 
+    if value == tree.value then
+        () 
+    elif value > tree.value then 
+        case tree.right of
+        None _: tree.right := Some (leaf value);
+        Some s: addTo s value
+        esac
+    else
+        case tree.left of 
+        None _: tree.left := Some (leaf value);
+        Some s: addTo s value
+        esac
+    fi;
+
+{ addTo, leaf }
+

@@ -1,0 +1,34 @@
+module hashtree;
+
+typedef hashtree = hash<string, Sub 'a | Ends ()>;
+
+addLeaf tree value = tree[value] := Ends ();
+
+addList tree lst is hashtree -> list<string> -> () = 
+    case lst of
+    [leaf]:
+        addLeaf tree leaf;
+    node::rest:
+        if not node in tree then 
+            tree[node] := Sub [:]
+        fi;
+        case tree[node] of 
+            Sub subtree: addList subtree rest;
+            _: (); //!!! This is an error -- inconsistent subtree
+        esac;
+    _: ();
+    esac;
+
+exactMatch tree lst is hashtree -> list<string> -> boolean =
+    case lst of
+    [leaf]:
+        if not leaf in tree then false
+        else case tree[leaf] of Sub _: false; Ends _: true esac fi;
+    node::rest:
+        if not node in tree then false
+        else case tree[node] of Sub sub: exactMatch sub rest; Ends _: false esac fi;
+    _: false;
+    esac;
+
+{ addLeaf, addList, exactMatch }
+
