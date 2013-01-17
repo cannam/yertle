@@ -1,7 +1,7 @@
 
 module index;
 
-typedef stmt = {
+typedef statement = {
    s is URI string | Blank number,
    p is URI string,
    o is URI string | Blank number | Literal { value is string, type is string },
@@ -28,23 +28,23 @@ newIndex type = {
     tree = [:];
 };
 
-add ix statement is index -> stmt -> boolean =
+add ix stmt is index -> statement -> boolean =
     case ix.order of
     selector::rest:
-        node = selector statement;
+        node = selector stmt;
         if not node in ix.tree then 
             if empty? rest then 
-                ix.tree[node] := Entry statement;
+                ix.tree[node] := Entry stmt;
                 true;
             else
                 sub = [:];
                 ix.tree[node] := Sub sub;
-                add { order = rest, tree = sub } statement;
+                add { order = rest, tree = sub } stmt;
             fi;
         else
             case ix.tree[node] of
-                Sub sub: add { order = rest, tree = sub } statement;
-                Entry s: empty? rest and s == statement;
+                Sub sub: add { order = rest, tree = sub } stmt;
+                Entry s: empty? rest and s == stmt;
             esac;
         fi;
     _: false;
@@ -59,21 +59,7 @@ enumerate ix is index -> list<'a> =
             esac
         done (keys ix.tree));
 
-contains ix statement is index -> stmt -> boolean =
-    case ix.order of
-    selector::rest:
-        node = selector statement;
-        if not node in ix.tree then false
-        else
-            case ix.tree[node] of
-                Sub sub: contains { order = rest, tree = sub } statement;
-                Entry s: s == statement;
-            esac
-        fi;
-    _: false;
-    esac;
-
-match ix pat is index -> pattern -> list<stmt> =
+match ix pat is index -> pattern -> list<statement> =
     concat
        (case ix.order of
         selector::rest:
@@ -91,6 +77,9 @@ match ix pat is index -> pattern -> list<stmt> =
             done matching;
         _: [];
         esac);
+
+contains ix stmt is index -> statement -> boolean =
+    not empty? (match ix stmt);
 
 { newIndex, add, enumerate, contains, match }
 
