@@ -1,58 +1,78 @@
 
 module index;
 
-tr = load hashtree;
-
 typedef stmt = {
    s is URI string | Blank number,
    p is URI string,
    o is URI string | Blank number | Literal { value is string, type is string },
 };
 
-typedef template = {
+typedef pattern = {
    s is Wildcard () | URI string | Blank number,
    p is Wildcard () | URI string,
    o is Wildcard () | URI string | Blank number | Literal { value is string, type is string }
 };
 
+typedef indextree = hash<'a, Sub 'b | Entry 'c>;
+
+typedef index = { order is 'a, tree is indextree };
+
 newIndex type = {
     order =
     case type of 
-       SPO (): [ (.s), (.p), (.o) ];
-       SOP (): [ (.s), (.o), (.p) ];
-       PSO (): [ (.p), (.s), (.o) ];
+       SPO (): [ (.s), (.p), (.o) ]; // list of selectors must be exhaustive for the statement structure
        POS (): [ (.p), (.o), (.s) ];
        OPS (): [ (.o), (.p), (.s) ];
-       OSP (): [ (.o), (.s), (.p) ];
-       SP  (): [ (.s), (.p) ];
+       Other o: o;
     esac,
-    tree = tr.empty (),
+    tree = [:];
 };
 
-insert ix stmt = tr.addList ix.tree (map do s: s stmt done ix.order);
-
-add index statement =
-    case index.order of
+add ix statement is index -> stmt -> boolean =
+    case ix.order of
     selector::rest:
         node = selector statement;
-        if not node in index.tree then 
+        if not node in ix.tree then 
             if empty? rest then 
-                index.tree[node] := Whole statement;
+                ix.tree[node] := Entry statement;
                 true;
             else
                 sub = [:];
-                index.tree[node] := Sub sub;
+                ix.tree[node] := Sub sub;
                 add { order = rest, tree = sub } statement;
             fi;
         else
-            case index.tree[node] of
+            case ix.tree[node] of
                 Sub sub: add { order = rest, tree = sub } statement;
-                Whole _: empty? rest;
+                Entry s: empty? rest and s == statement;
             esac;
         fi;
     _: false;
     esac;
 
-{ newIndex, insert, add }
+enumerate ix is index -> list<'a> =
+    concat
+       (map do k:
+            case ix.tree[k] of
+            Sub sub: enumerate { tree = sub };
+            Entry e: [e];
+            esac
+        done (keys ix.tree));
+
+contains ix statement is index -> stmt -> boolean =
+    case ix.order of
+    selector::rest:
+        node = selector statement;
+        if not node in ix.tree then false
+        else
+            case ix.tree[node] of
+                Sub sub: contains { order = rest, tree = sub } statement;
+                Entry s: s == statement;
+            esac
+        fi;
+    _: false;
+    esac;
+
+{ newIndex, add, enumerate, contains }
 
 
