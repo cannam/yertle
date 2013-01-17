@@ -73,6 +73,25 @@ contains ix statement is index -> stmt -> boolean =
     _: false;
     esac;
 
-{ newIndex, add, enumerate, contains }
+match ix pat is index -> pattern -> list<stmt> =
+    concat
+       (case ix.order of
+        selector::rest:
+            node = selector pat;
+            matching = case node of
+                       Wildcard w: keys ix.tree;
+                        _: if node in ix.tree then [node] else [] fi;
+                       esac;
+            println "matching for \(node): \(length matching)";
+            map do m:
+                case ix.tree[m] of
+                Sub sub: match { order = rest, tree = sub } pat;
+                Entry e: [e];
+                esac
+            done matching;
+        _: [];
+        esac);
+
+{ newIndex, add, enumerate, contains, match }
 
 
