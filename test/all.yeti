@@ -5,6 +5,7 @@ program test.all;
 
 tests = [
     "hashTree" : load test.test_hashtree,
+    "index" : load test.test_index,
 ];
 
 bad = sum (mapHash do name testHash: runTests name testHash done tests);

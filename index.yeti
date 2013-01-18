@@ -10,7 +10,7 @@ typedef statement = {
 typedef pattern = {
    s is Wildcard () | URI string | Blank number,
    p is Wildcard () | URI string,
-   o is Wildcard () | URI string | Blank number | Literal { value is string, type is string }
+   o is Wildcard () | URI string | Blank number | Literal { value is string, type is string },
 };
 
 typedef indextree = hash<'a, Sub 'b | Entry 'c>;
@@ -50,6 +50,20 @@ add ix stmt is index -> statement -> boolean =
     _: false;
     esac;
 
+remove ix stmt is index -> statement -> boolean =
+    case ix.order of
+    selector::rest:
+        node = selector stmt;
+        if not node in ix.tree then false 
+        else
+            case ix.tree[node] of
+                Sub sub: remove { order = rest, tree = sub } stmt;
+                Entry s: empty? rest and (delete ix.tree node; true);
+            esac;
+        fi;
+    _: false;
+    esac;
+
 enumerate ix is index -> list<'a> =
     concat
        (map do k:
@@ -65,10 +79,9 @@ match ix pat is index -> pattern -> list<statement> =
         selector::rest:
             node = selector pat;
             matching = case node of
-                       Wildcard w: keys ix.tree;
-                        _: if node in ix.tree then [node] else [] fi;
+                       Wildcard _: keys ix.tree;
+                       _: if node in ix.tree then [node] else [] fi;
                        esac;
-            println "matching for \(node): \(length matching)";
             map do m:
                 case ix.tree[m] of
                 Sub sub: match { order = rest, tree = sub } pat;
@@ -81,6 +94,6 @@ match ix pat is index -> pattern -> list<statement> =
 contains ix stmt is index -> statement -> boolean =
     not empty? (match ix stmt);
 
-{ newIndex, add, enumerate, contains, match }
+{ newIndex, add, remove, enumerate, contains, match }
 
 
