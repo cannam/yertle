@@ -4,7 +4,6 @@ program test.all;
 { runTests } = load test.test;
 
 tests = [
-    "hashTree" : load test.test_hashtree,
     "index" : load test.test_index,
 ];
 
