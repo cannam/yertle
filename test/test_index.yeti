@@ -1,0 +1,143 @@
+
+module test.test_index;
+
+{ compare } = load test.test;
+
+{ newIndex, add, remove, enumerate, contains, match } = load index;
+
+// unordered compare
+cmp a b = hash a == hash b;
+
+// just so as to print out the discrepancy nicely if test fails
+compareUnordered a b = if cmp a b then true else compare a b fi;
+
+triple a b c = { s = URI a, p = URI b, o = URI c };
+
+testTriple n =
+    case n of
+    "aaa": triple "fred" "loves" "cheese";
+    "aab": triple "fred" "loves" "fruit";
+    "abc": triple "fred" "hates" "vinegar";
+    "bba": triple "jodie" "hates" "cheese";
+    "bca": triple "jodie" "tolerates" "fred";
+    _: triple "this" "shouldn't" "happen";
+    esac;
+
+indexNames = [ "spo", "pos", "ops", "sop", "pso", "osp" ];
+
+indexType n =
+    case n of
+    "spo": SPO ();
+    "pos": POS ();
+    "ops": OPS ();
+    "sop": Other [ (.s), (.o), (.p) ];
+    "pso": Other [ (.p), (.s), (.o) ];
+    "osp": Other [ (.o), (.s), (.p) ];
+    _: Other [];
+    esac;
+
+preliminaries =
+[
+
+"cmp": \(
+    // just check our cmp function works!
+    cmp [1,2,3] [3,2,1] and
+       not cmp [1,2,3] [3,2,0] and
+       cmp [] [] and
+       not cmp [1] [] and
+       cmp [[1],[2]] [[2],[1]]
+),
+
+];
+
+perIndex name type =
+[
+
+"\(name)-empty": \(
+    compareUnordered (enumerate (newIndex type)) [];
+),
+
+"\(name)-simple": \(
+    h = newIndex type;
+    add h (testTriple "aaa") and
+       compareUnordered (enumerate h) [testTriple "aaa"];
+),
+
+"\(name)-duplicate": \(
+    h = newIndex type;
+    add h (testTriple "aaa") and
+       add h (testTriple "aaa") and
+       compareUnordered (enumerate h) [testTriple "aaa"];
+),
+
+"\(name)-common": \(
+    h = newIndex type;
+    add h (testTriple "aaa") and
+       add h (testTriple "aab") and
+       compareUnordered (enumerate h) [testTriple "aaa",testTriple "aab"];
+),
+
+"\(name)-diverging": \(
+    h = newIndex type;
+    add h (testTriple "aaa") and
+       add h (testTriple "aab") and
+       add h (testTriple "abc") and
+       add h (testTriple "bba") and
+       compareUnordered (enumerate h)
+           [(testTriple "aaa"),
+            (testTriple "aab"),
+            (testTriple "abc"),
+            (testTriple "bba")];
+),
+
+"\(name)-contains": \(
+    h = newIndex type;
+    add h (testTriple "aaa") and
+       add h (testTriple "aab") and
+       add h (testTriple "abc") and
+       add h (testTriple "bba") and
+       contains h (testTriple "aaa") and
+       contains h (testTriple "aab") and
+       contains h (testTriple "abc") and
+       contains h (testTriple "bba") and
+       not contains h (testTriple "bca")
+),
+
+"\(name)-remove": \(
+    h = newIndex type;
+    add h (testTriple "aaa") and
+       add h (testTriple "aab") and
+       add h (testTriple "abc") and
+       add h (testTriple "bba") and
+       contains h (testTriple "aaa") and
+       remove h (testTriple "aaa") and
+       not contains h (testTriple "aaa") and // not there after removing
+       not remove h (testTriple "aaa") and // and can't remove again
+       remove h (testTriple "bba") and
+       not remove h (testTriple "bca")
+),
+
+"\(name)-match": \(
+    h = newIndex type;
+    add h (testTriple "aaa") and
+       add h (testTriple "aab") and
+       add h (testTriple "abc") and
+       add h (testTriple "bba") and
+       compareUnordered (enumerate h)
+          (match h { s = Wildcard (), p = Wildcard (), o = Wildcard () }) and
+       compareUnordered
+          (match h { s = Wildcard (), p = Wildcard (), o = URI "cheese" })
+          [testTriple "aaa", testTriple "bba"]
+),
+
+];
+
+all = [:];
+
+for (concat [[preliminaries],
+             map do n: perIndex n (indexType n) done indexNames]) do h:
+    for (keys h) do k: all[k] := h[k] done
+done;
+
+all is hash<string, () -> boolean>;
+
