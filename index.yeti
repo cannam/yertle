@@ -20,7 +20,8 @@ typedef index = { order is 'a, tree is indextree };
 newIndex type = {
     order =
     case type of 
-       SPO (): [ (.s), (.p), (.o) ]; // list of selectors must be exhaustive for the statement structure
+       // list of selectors must be exhaustive for the statement structure
+       SPO (): [ (.s), (.p), (.o) ];
        POS (): [ (.p), (.o), (.s) ];
        OPS (): [ (.o), (.p), (.s) ];
        Other o: o;
