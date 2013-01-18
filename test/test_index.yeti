@@ -3,7 +3,7 @@ module test.test_index;
 
 { compare } = load test.test;
 
-{ newIndex, add, remove, enumerate, contains, match } = load index;
+{ newIndex, add, remove, enumerate, contains, match, scoreIndexFor, chooseIndex } = load index;
 
 // unordered compare
 cmp a b = hash a == hash b;
@@ -21,6 +21,17 @@ testTriple n =
     "bba": triple "jodie" "hates" "cheese";
     "bca": triple "jodie" "tolerates" "fred";
     _: triple "this" "shouldn't" "happen";
+    esac;
+
+testWildcard n =
+    case n of
+    "***": { s = Wildcard (), p = Wildcard (), o = Wildcard () };
+    "aa*": { s = URI "fred", p = URI "loves", o = Wildcard () };
+    "a**": { s = URI "fred", p = Wildcard (), o = Wildcard () };
+    "*a*": { s = Wildcard (), p = URI "loves", o = Wildcard () };
+    "a*a": { s = URI "fred", p = Wildcard (), o = URI "cheese" };
+    "**a": { s = Wildcard (), p = Wildcard (), o = URI "cheese" };
+    _: { s = Wildcard (), p = Wildcard (), o = Wildcard () };
     esac;
 
 indexNames = [ "spo", "pos", "ops", "sop", "pso", "osp" ];
@@ -123,11 +134,46 @@ perIndex name type =
        add h (testTriple "aab") and
        add h (testTriple "abc") and
        add h (testTriple "bba") and
-       compareUnordered (enumerate h)
-          (match h { s = Wildcard (), p = Wildcard (), o = Wildcard () }) and
-       compareUnordered
-          (match h { s = Wildcard (), p = Wildcard (), o = URI "cheese" })
+       compareUnordered (enumerate h) (match h (testWildcard "***")) and
+       compareUnordered (match h (testWildcard "**a"))
           [testTriple "aaa", testTriple "bba"]
+),
+
+];
+
+testIndexFor ixs patstr ixstrs =
+   (ix = chooseIndex ixs (testWildcard patstr);
+    contains? ix (map do n: newIndex (indexType n) done ixstrs) or
+       (println "** for \(testWildcard patstr)\n   expected: one of \(ixstrs)\n   obtained: \(ix.order)"; false));
+
+discriminatory =
+[
+
+"scoreIndex": \(
+    h = newIndex (OPS ());
+    compare (scoreIndexFor (testWildcard "**a") h) 16 and
+        compare (scoreIndexFor (testWildcard "a*a") h) 20 and
+        compare (scoreIndexFor (testWildcard "aa*") h) 12
+),
+
+"chooseIndexFromAll": \(
+    ixs = map do n: newIndex (indexType n) done indexNames;
+    testIndexFor ixs "aa*" ["spo","pso"] and
+        testIndexFor ixs "a**" ["spo","sop"] and
+        testIndexFor ixs "aaa" indexNames and
+        testIndexFor ixs "a*a" ["sop","osp"] and
+        testIndexFor ixs "***" indexNames and
+        testIndexFor ixs "*a*" ["pso","pos"]
+),
+
+"chooseIndexFromSet": \(
+    ixs = map do n: newIndex (indexType n) done ["spo","pos","ops"];
+    testIndexFor ixs "aa*" ["spo"] and
+        testIndexFor ixs "a**" ["spo"] and
+        testIndexFor ixs "aaa" ["spo","pos","ops"] and
+        testIndexFor ixs "a*a" ["ops", "spo"] and
+        testIndexFor ixs "***" ["spo","pos","ops"] and
+        testIndexFor ixs "*a*" ["pos"]
 ),
 
 ];
@@ -135,7 +181,8 @@ perIndex name type =
 all = [:];
 
 for (concat [[preliminaries],
-             map do n: perIndex n (indexType n) done indexNames]) do h:
+             map do n: perIndex n (indexType n) done indexNames,
+             [discriminatory]],) do h:
     for (keys h) do k: all[k] := h[k] done
 done;
 

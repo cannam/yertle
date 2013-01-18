@@ -94,6 +94,19 @@ match ix pat is index -> pattern -> list<statement> =
 contains ix stmt is index -> statement -> boolean =
     not empty? (match ix stmt);
 
-{ newIndex, add, remove, enumerate, contains, match }
+scoreIndexFor pat ix is pattern -> index -> number =
+    case ix.order of
+    selector::rest:
+        if (selector pat) == Wildcard () then 0 else 16 fi
+            + (scoreIndexFor pat { order = rest }) / 2;
+    _: 0;
+    esac;
+
+chooseIndex ixs pat is list<index> -> pattern -> index =
+   (h = mapIntoHash (scoreIndexFor pat) id ixs;
+    best = head (sortBy (>) (keys h));
+    h[best]);
+
+{ newIndex, add, remove, enumerate, contains, match, scoreIndexFor, chooseIndex }
 
 
