@@ -3,37 +3,97 @@ module read;
 
 char = load char;
 
-readWhitespace reader =
-;
+whitespace r =
+   (r.isWhitespace loop r.discard ();
+    if r.next == "#" then
+        not r.isEol loop r.discard ();
+        whitespace r;
+    fi);
 
-readPunct reader expected =
-   (readWhitespace reader;
-    p = reader.next;
-    reader.read ();
-    readWhitespace reader;
-    p == expected);
+punctuation r expected =
+   (whitespace r;
+    r.read () == expected);
 
-readStatement reader state =
-    if reader.eof then End ()
+matching re r =
+   (if r.next =~ re then
+       (r.read ()) ^ (matching re r)
+    else ""
+    fi);
+
+langtag r =
+   (if (punctuation r "@") then
+       sub r =
+          (tag = matching "[a-zA-Z]" r;
+          println "langtag: matched \(tag)";
+           if r.next == "-" then
+               tag ^ r.read () ^ sub r
+           else
+               tag
+           fi);
+       Token (sub r);
     else
-        case reader.next of
-        "@": readDirective reader state;
-         _: (triples = readTriples reader state;
-             if readPunct reader "." then triples else Error "Expected ." fi);
-        esac
-    fi;
+       Error "Expected @";
+    fi);
 
-readDoc reader state =
-    case readStatement reader state of 
-    Triples t: t :. \(readDoc reader state);
-    State newState: readDoc reader newState;
-    Error text: [Error text];
-    End _: [];
-    esac;
+iriref r =
+   (if punctuation r "<" then
+       iri = matching '[^<>\\"{}|^`\\\\]' r; //!!! should be [^#x00-#x20<>"{}|^`\\] or UCHAR
+       if punctuation r ">" then Token iri
+       else Error "Expected >"
+       fi
+    else Error "Expected <uri>"
+    fi);
+
+base r state = 
+   (case iriref r of
+    Token t: State (state with { base = t });
+    Error e: Error "Failed to read @base: \(e)";
+    esac);
+
+prefix r state = State state; //!!!
+
+directive r state =
+   (case langtag r of
+    Token t:
+        case t of
+        "prefix": prefix r state;
+          "base": base r state;
+               _: Error "Expected prefix or base, found '\(t)'";
+        esac;
+    Error e: Error "Failed to read directive: \(e)";
+    esac);
+
+triples r state = Triples [];
+
+statement r state =
+   (whitespace r;
+    if r.isEof then End ()
+    else
+        result = case r.next of
+        "@": directive r state;
+          _: triples   r state;
+        esac;
+        if punctuation r "." then result
+        else case result of Error _: result; _: Error "Expected ." esac
+        fi
+    fi);
+
+document r state =
+   (result = statement r state;
+    case result of
+    State newstate:
+        document r newstate;
+    Triples t:
+        result :. \(document r state);
+    Error text:
+        [result];
+    End _:
+        [];
+    esac);
 
 readDocument handle = 
-    readDoc (char.reader handle) {
-        baseURI = "",
+    document (char.reader handle) {
+        base = "",
         namespaces = [:],
         bnodeLabels = [:],
 //        curSubject = "",

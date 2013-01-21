@@ -7,8 +7,11 @@ reader handle =
     reload ();
     {
         read () = (c = next; reload (); c),
+        discard () = reload (),
         get next () = next,
-        get eof () = not defined? next,
+        get isWhitespace () = (strIndexOf "\n\t\r " next 0 >= 0),
+        get isEol () = (next == "\n" or next == "\r"),
+        get isEof () = not defined? next,
     });
 
 { reader }
