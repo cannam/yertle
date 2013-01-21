@@ -1,21 +1,9 @@
 
-module test.test_index;
+module test.test_store;
 
 { compare, compareUnordered } = load test.test;
 
-{ add, remove, enumerate, contains, match, chooseIndex } = load index;
-
-newIndex type = {
-    order =
-    case type of 
-       // list of selectors must be exhaustive for the statement structure
-       SPO (): [ (.s), (.p), (.o) ];
-       POS (): [ (.p), (.o), (.s) ];
-       OPS (): [ (.o), (.p), (.s) ];
-       Other o: o;
-    esac,
-    tree = [:];
-};
+{ newStore, add, remove, enumerate, contains, match } = load store;
 
 triple a b c = { s = URI a, p = URI b, o = URI c };
 
@@ -40,48 +28,34 @@ testWildcard n =
     _: { s = Wildcard (), p = Wildcard (), o = Wildcard () };
     esac;
 
-indexNames = [ "spo", "pos", "ops", "sop", "pso", "osp" ];
-
-indexType n =
-    case n of
-    "spo": SPO ();
-    "pos": POS ();
-    "ops": OPS ();
-    "sop": Other [ (.s), (.o), (.p) ];
-    "pso": Other [ (.p), (.s), (.o) ];
-    "osp": Other [ (.o), (.s), (.p) ];
-    _: Other [];
-    esac;
-
-perIndex name type =
 [
 
-"\(name)-empty": \(
-    compareUnordered (enumerate (newIndex type)) [];
+"empty": \(
+    compareUnordered (enumerate (newStore ())) [];
 ),
 
-"\(name)-simple": \(
-    h = newIndex type;
+"simple": \(
+    h = newStore ();
     add h (testTriple "aaa") and
        compareUnordered (enumerate h) [testTriple "aaa"];
 ),
 
-"\(name)-duplicate": \(
-    h = newIndex type;
+"duplicate": \(
+    h = newStore ();
     add h (testTriple "aaa") and
        add h (testTriple "aaa") and
        compareUnordered (enumerate h) [testTriple "aaa"];
 ),
 
-"\(name)-common": \(
-    h = newIndex type;
+"common": \(
+    h = newStore ();
     add h (testTriple "aaa") and
        add h (testTriple "aab") and
        compareUnordered (enumerate h) [testTriple "aaa",testTriple "aab"];
 ),
 
-"\(name)-diverging": \(
-    h = newIndex type;
+"diverging": \(
+    h = newStore ();
     add h (testTriple "aaa") and
        add h (testTriple "aab") and
        add h (testTriple "abc") and
@@ -93,8 +67,8 @@ perIndex name type =
             (testTriple "bba")];
 ),
 
-"\(name)-contains": \(
-    h = newIndex type;
+"contains": \(
+    h = newStore ();
     add h (testTriple "aaa") and
        add h (testTriple "aab") and
        add h (testTriple "abc") and
@@ -106,8 +80,8 @@ perIndex name type =
        not contains h (testTriple "bca")
 ),
 
-"\(name)-remove": \(
-    h = newIndex type;
+"remove": \(
+    h = newStore ();
     add h (testTriple "aaa") and
        add h (testTriple "aab") and
        add h (testTriple "abc") and
@@ -120,8 +94,8 @@ perIndex name type =
        not remove h (testTriple "bca")
 ),
 
-"\(name)-match": \(
-    h = newIndex type;
+"match": \(
+    h = newStore ();
     add h (testTriple "aaa") and
        add h (testTriple "aab") and
        add h (testTriple "abc") and
@@ -131,44 +105,5 @@ perIndex name type =
           [testTriple "aaa", testTriple "bba"]
 ),
 
-];
-
-testIndexFor ixs patstr ixstrs =
-   (ix = chooseIndex ixs (testWildcard patstr);
-    contains? ix (map do n: newIndex (indexType n) done ixstrs) or
-       (println "** for \(testWildcard patstr)\n   expected: one of \(ixstrs)\n   obtained: \(ix.order)"; false));
-
-discriminatory =
-[
-
-"chooseIndexFromAll": \(
-    ixs = map do n: newIndex (indexType n) done indexNames;
-    testIndexFor ixs "aa*" ["spo","pso"] and
-        testIndexFor ixs "a**" ["spo","sop"] and
-        testIndexFor ixs "aaa" indexNames and
-        testIndexFor ixs "a*a" ["sop","osp"] and
-        testIndexFor ixs "***" indexNames and
-        testIndexFor ixs "*a*" ["pso","pos"]
-),
-
-"chooseIndexFromSet": \(
-    ixs = map do n: newIndex (indexType n) done ["spo","pos","ops"];
-    testIndexFor ixs "aa*" ["spo"] and
-        testIndexFor ixs "a**" ["spo"] and
-        testIndexFor ixs "aaa" ["spo","pos","ops"] and
-        testIndexFor ixs "a*a" ["ops", "spo"] and
-        testIndexFor ixs "***" ["spo","pos","ops"] and
-        testIndexFor ixs "*a*" ["pos"]
-),
-
-];
-
-all = [:];
-
-for (concat [map do n: perIndex n (indexType n) done indexNames,
-             [discriminatory]],) do h:
-    for (keys h) do k: all[k] := h[k] done
-done;
-
-all is hash<string, () -> boolean>;
+] is hash<string, () -> boolean>;
 

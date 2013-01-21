@@ -1,35 +1,13 @@
 
 module index;
 
-typedef statement = {
-   s is URI string | Blank number,
-   p is URI string,
-   o is URI string | Blank number | Literal { value is string, type is string },
-};
-
-typedef pattern = {
-   s is Wildcard () | URI string | Blank number,
-   p is Wildcard () | URI string,
-   o is Wildcard () | URI string | Blank number | Literal { value is string, type is string },
-};
-
 typedef indextree = hash<'a, Sub 'b | Entry 'c>;
 
 typedef index = { order is 'a, tree is indextree };
 
-newIndex type = {
-    order =
-    case type of 
-       // list of selectors must be exhaustive for the statement structure
-       SPO (): [ (.s), (.p), (.o) ];
-       POS (): [ (.p), (.o), (.s) ];
-       OPS (): [ (.o), (.p), (.s) ];
-       Other o: o;
-    esac,
-    tree = [:];
-};
+newIndex order = { order, tree = [:] };
 
-add ix stmt is index -> statement -> boolean =
+add ix stmt is index -> 'a -> boolean =
     case ix.order of
     selector::rest:
         node = selector stmt;
@@ -51,7 +29,7 @@ add ix stmt is index -> statement -> boolean =
     _: false;
     esac;
 
-remove ix stmt is index -> statement -> boolean =
+remove ix stmt is index -> 'a -> boolean =
     case ix.order of
     selector::rest:
         node = selector stmt;
@@ -65,23 +43,29 @@ remove ix stmt is index -> statement -> boolean =
     _: false;
     esac;
 
-enumerate ix is index -> list<'a> =
+enumerate' tree is 'a -> list<'b> =
     concat
        (map do k:
-            case ix.tree[k] of
-            Sub sub: enumerate { tree = sub };
+            case tree[k] of
+            Sub sub: enumerate' sub;
             Entry e: [e];
             esac
-        done (keys ix.tree));
+        done (keys tree));
 
-match ix pat is index -> pattern -> list<statement> =
+enumerate ix is index -> list<'a> =
+    enumerate' ix.tree;
+
+match ix pat is index -> 'a -> list<'b> =
     concat
        (case ix.order of
         selector::rest:
             node = selector pat;
+            ifPresent n = if n in ix.tree then [n] else [] fi;
             matching = case node of
                        Wildcard _: keys ix.tree;
-                       _: if node in ix.tree then [node] else [] fi;
+                       URI _:      ifPresent node;
+                       Blank _:    ifPresent node;
+                       Literal _:  ifPresent node;
                        esac;
             map do m:
                 case ix.tree[m] of
@@ -92,22 +76,22 @@ match ix pat is index -> pattern -> list<statement> =
         _: [];
         esac);
 
-contains ix stmt is index -> statement -> boolean =
+contains ix stmt is index -> 'a -> boolean =
     not empty? (match ix stmt);
 
-scoreIndexFor pat ix is pattern -> index -> number =
-    case ix.order of
+scoreIndexFor pat order is 'a -> 'b -> number =
+    case order of
     selector::rest:
         if (selector pat) == Wildcard () then 0 else 16 fi
-            + (scoreIndexFor pat { order = rest }) / 2;
+            + (scoreIndexFor pat rest) / 2;
     _: 0;
     esac;
 
-chooseIndex ixs pat is list<index> -> pattern -> index =
-   (h = mapIntoHash (scoreIndexFor pat) id ixs;
+chooseIndex ixs pat is list<index> -> 'a -> index =
+   (h = mapIntoHash ((scoreIndexFor pat) . (.order)) id ixs;
     best = head (sortBy (>) (keys h));
     h[best]);
 
-{ newIndex, add, remove, enumerate, contains, match, scoreIndexFor, chooseIndex }
+{ newIndex, add, remove, enumerate, contains, match, chooseIndex }
 
 

@@ -17,6 +17,12 @@ compare obtained expected =
         false;
     fi;
 
+// unordered compare
+cmp a b = hash a == hash b;
+
+// just so as to print out the discrepancy nicely if test fails
+compareUnordered a b = if cmp a b then true else compare a b fi;
+
 select f = fold do r x: if f x then x::r else r fi done [];
 
 failedTests testHash =
@@ -39,6 +45,6 @@ runTests group testHash =
     bad);
 
 {
-    assert, compare, failedTests, runTests
+    assert, compare, compareUnordered, failedTests, runTests
 }
 
