@@ -1,0 +1,14 @@
+
+module char;
+
+reader handle =
+   (var next = "";
+    reload () = (next := handle.read 1);
+    reload ();
+    {
+        read () = (c = next; reload (); c),
+        get next () = next,
+        get eof () = not defined? next,
+    });
+
+{ reader }

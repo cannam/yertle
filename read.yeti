@@ -1,0 +1,43 @@
+
+module read;
+
+char = load char;
+
+readWhitespace reader =
+;
+
+readPunct reader expected =
+   (readWhitespace reader;
+    p = reader.next;
+    reader.read ();
+    readWhitespace reader;
+    p == expected);
+
+readStatement reader state =
+    if reader.eof then End ()
+    else
+        case reader.next of
+        "@": readDirective reader state;
+         _: (triples = readTriples reader state;
+             if readPunct reader "." then triples else Error "Expected ." fi);
+        esac
+    fi;
+
+readDoc reader state =
+    case readStatement reader state of 
+    Triples t: t :. \(readDoc reader state);
+    State newState: readDoc reader newState;
+    Error text: [Error text];
+    End _: [];
+    esac;
+
+readDocument handle = 
+    readDoc (char.reader handle) {
+        baseURI = "",
+        namespaces = [:],
+        bnodeLabels = [:],
+//        curSubject = "",
+//        curPredicate = ""
+    };
+
+{ readDocument }
