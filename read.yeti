@@ -12,35 +12,41 @@ whitespace r =
         OK ()
     fi);
 
-required r expected =
+required expected r =
     if r.next == expected then
        r.discard (); OK ()
     else
        Error "Expected '\(expected)', found '\(r.next)' at \(r.location)";
     fi;
 
-greedy r re =
+greedy re r =
    (var tok = "";
     r.next =~ re loop tok := tok ^ (r.read ());
     Token tok);
 
 /**
  * Sequence of matches, of which at most one can be a token
- * match. Returns token, OK, or error
+ * match.
+ *
+ * r is a reader; seq is a list of functions that take the
+ * reader as arg and each return Token, OK, or Error.
+ *
+ * Result is Error if any function in seq returns Error; else
+ * Token if one function in seq returns Token; else OK.
  */
-sequence _ =
-   (sub acc seq =
+sequence r seq =
+   (sub acc r seq =
         case seq of
         h::t:
-           (item = h ();
+           (item = h r;
             case item of
             Error _: item;
-            Token _: sub item t;
-               OK _: sub acc t;
+            Token _: sub item r t;
+               OK _: sub acc r t;
             esac);
         _: acc;
         esac;
-    sub (OK ()));            
+    sub (OK ()) r seq);
 
 /**
  * Sequence returning a single token, or error
@@ -52,28 +58,28 @@ tokseq r seq =
     Error e: Error e;
     esac;
 
-punctuation r expected =
+punctuation expected r =
     sequence r
-       [\(whitespace r),
-        \(required r expected)];
+       [whitespace,
+        required expected];
 
 langtag r =
    (sub r = 
-        case greedy r "[a-zA-Z]" of
+        case greedy "[a-zA-Z]" r of
         Token tag:
             if r.next == "-" then tag ^ r.read () ^ sub r
             else tag
             fi;
         esac;
     tokseq r
-       [\(required r "@"),
-        \(Token (sub r))]);
+       [required "@",
+        Token . sub]);
 
 iriref r =
     tokseq r
-       [\(required r "<"),
-        \(greedy r '[^\x00-\x20<>\\"{}|^`\\\\]'), //!!! " or UCHAR
-        \(required r ">")];
+       [required "<",
+        greedy '[^\x00-\x20<>\\"{}|^`\\\\]', //!!! " or UCHAR
+        required ">"];
 
 ifgood a b =
     case a of
@@ -81,21 +87,21 @@ ifgood a b =
           _: b;
     esac;
 
-base r state = 
+base state r = 
     case tokseq r
-       [\(whitespace r),
-        \(iriref r)]
+       [whitespace,
+        iriref]
     of
         Token iri: State (state with { base = iri });
         Error e: Error "Failed to read @base: \(e)";
     esac;
 
-prefix r state =
+prefix state r =
     case tokseq r
-       [\(whitespace r),
-        \(greedy r "[a-zA-Z]"), //!!! not correct for PN_PREFIX
-        \(required r ":"),
-        \(whitespace r)]
+       [whitespace,
+        greedy "[a-zA-Z]", //!!! not correct for PN_PREFIX
+        required ":",
+        whitespace]
     of
     Token pname:
         case iriref r of
@@ -107,39 +113,39 @@ prefix r state =
     Error e: Error "Failed to read prefix name: \(e)";
     esac;
 
-directive r state =
+directive state r =
    (case langtag r of
     Token t:
         case t of
-        "prefix": prefix r state;
-          "base": base r state;
+        "prefix": prefix state r;
+          "base": base state r;
                _: Error "Expected prefix or base, found '\(t)'";
         esac;
     Error e: Error "Failed to read directive: \(e)";
     esac);
 
-triples r state = Triples [];
+triples state r = Triples [];
 
-statement r state =
+statement state r =
     case whitespace r of OK _:
         if r.isEof then End ()
         else
             result = case r.next of
-            "@": directive r state;
-              _: triples   r state;
+            "@": directive state r;
+              _: triples   state r;
             esac;
-            ifgood result (ifgood (punctuation r ".") result);
+            ifgood result (ifgood (punctuation "." r) result);
         fi;
     esac;
 
-document r state =
+document state r =
    (println "state = \(state)";
-    result = statement r state;
+    result = statement state r;
     case result of
     State newstate:
-        document r newstate;
+        document newstate r;
     Triples t:
-        result :. \(document r state);
+        result :. \(document state r);
     Error text:
         [result];
     End _:
@@ -147,12 +153,12 @@ document r state =
     esac);
 
 readDocument handle = 
-    document (char.reader handle) {
+    document {
         base = "",
         namespaces = [:],
         bnodeLabels = [:],
 //        curSubject = "",
 //        curPredicate = ""
-    };
+    } (char.reader handle);
 
 { readDocument }
