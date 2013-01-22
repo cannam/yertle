@@ -8,49 +8,104 @@ whitespace r =
     if r.next == "#" then
         not r.isEol loop r.discard ();
         whitespace r;
+    else
+        OK ()
     fi);
+
+required r expected =
+    if r.next == expected then
+       r.discard (); OK ()
+    else
+       Error "Expected '\(expected)', found '\(r.next)' at \(r.location)";
+    fi;
+
+greedy r re =
+   (var tok = "";
+    r.next =~ re loop tok := tok ^ (r.read ());
+    Token tok);
+
+/**
+ * Sequence of matches, of which at most one can be a token
+ * match. Returns token, OK, or error
+ */
+sequence _ =
+   (sub acc seq =
+        case seq of
+        h::t:
+           (item = h ();
+            case item of
+            Error _: item;
+            Token _: sub item t;
+               OK _: sub acc t;
+            esac);
+        _: acc;
+        esac;
+    sub (OK ()));            
+
+/**
+ * Sequence returning a single token, or error
+ */
+tokseq r seq =
+    case sequence r seq of
+    OK _: Error "Token expected around \(r.location)";
+    Token t: Token t;
+    Error e: Error e;
+    esac;
 
 punctuation r expected =
-   (whitespace r;
-    r.read () == expected);
-
-matching re r =
-   (if r.next =~ re then
-       (r.read ()) ^ (matching re r)
-    else ""
-    fi);
+    sequence r
+       [\(whitespace r),
+        \(required r expected)];
 
 langtag r =
-   (if (punctuation r "@") then
-       sub r =
-          (tag = matching "[a-zA-Z]" r;
-          println "langtag: matched \(tag)";
-           if r.next == "-" then
-               tag ^ r.read () ^ sub r
-           else
-               tag
-           fi);
-       Token (sub r);
-    else
-       Error "Expected @";
-    fi);
+   (sub r = 
+        case greedy r "[a-zA-Z]" of
+        Token tag:
+            if r.next == "-" then tag ^ r.read () ^ sub r
+            else tag
+            fi;
+        esac;
+    tokseq r
+       [\(required r "@"),
+        \(Token (sub r))]);
 
 iriref r =
-   (if punctuation r "<" then
-       iri = matching '[^<>\\"{}|^`\\\\]' r; //!!! should be [^#x00-#x20<>"{}|^`\\] or UCHAR
-       if punctuation r ">" then Token iri
-       else Error "Expected >"
-       fi
-    else Error "Expected <uri>"
-    fi);
+    tokseq r
+       [\(required r "<"),
+        \(greedy r '[^\x00-\x20<>\\"{}|^`\\\\]'), //!!! " or UCHAR
+        \(required r ">")];
+
+ifgood a b =
+    case a of
+    Error e: Error e;
+          _: b;
+    esac;
 
 base r state = 
-   (case iriref r of
-    Token t: State (state with { base = t });
-    Error e: Error "Failed to read @base: \(e)";
-    esac);
+    case tokseq r
+       [\(whitespace r),
+        \(iriref r)]
+    of
+        Token iri: State (state with { base = iri });
+        Error e: Error "Failed to read @base: \(e)";
+    esac;
 
-prefix r state = State state; //!!!
+prefix r state =
+    case tokseq r
+       [\(whitespace r),
+        \(greedy r "[a-zA-Z]"), //!!! not correct for PN_PREFIX
+        \(required r ":"),
+        \(whitespace r)]
+    of
+    Token pname:
+        case iriref r of
+        Token iri: State (state with {
+            namespaces = (h = copy (state.namespaces); h[pname ^ ":"] := iri; h)
+            });
+        Error e: Error "Failed to read prefix IRI: \(e)";
+        esac;
+    Error e: Error "Failed to read prefix name: \(e)";
+    esac;
 
 directive r state =
    (case langtag r of
@@ -66,20 +121,20 @@ directive r state =
 triples r state = Triples [];
 
 statement r state =
-   (whitespace r;
-    if r.isEof then End ()
-    else
-        result = case r.next of
-        "@": directive r state;
-          _: triples   r state;
-        esac;
-        if punctuation r "." then result
-        else case result of Error _: result; _: Error "Expected ." esac
-        fi
-    fi);
+    case whitespace r of OK _:
+        if r.isEof then End ()
+        else
+            result = case r.next of
+            "@": directive r state;
+              _: triples   r state;
+            esac;
+            ifgood result (ifgood (punctuation r ".") result);
+        fi;
+    esac;
 
 document r state =
-   (result = statement r state;
+   (println "state = \(state)";
+    result = statement r state;
     case result of
     State newstate:
         document r newstate;

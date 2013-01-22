@@ -2,16 +2,27 @@
 module char;
 
 reader handle =
-   (var next = "";
-    reload () = (next := handle.read 1);
+   (var nextchar = "";
+    var lineno = 1;
+    var colno = 0;
+    var charno = 0;
+    ws c = (strIndexOf "\n\t\r " c 0 >= 0);
+    eol c = (c == "\n" or c == "\r");
+    reload () = (
+        nextchar := handle.read 1;
+        if eol nextchar then colno := 1; lineno := lineno + 1;
+        else colno := colno + 1;
+        fi;
+        charno := charno + 1);
     reload ();
     {
-        read () = (c = next; reload (); c),
+        read () = (c = nextchar; reload (); c),
         discard () = reload (),
-        get next () = next,
-        get isWhitespace () = (strIndexOf "\n\t\r " next 0 >= 0),
-        get isEol () = (next == "\n" or next == "\r"),
-        get isEof () = not defined? next,
+        get next () = nextchar,
+        get isWhitespace () = ws nextchar,
+        get isEol () = eol nextchar,
+        get isEof () = not defined? nextchar,
+        get location () = "line \(lineno), column \(colno)",
     });
 
 { reader }
