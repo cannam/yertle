@@ -53,9 +53,9 @@ sequence r seq =
  */
 tokseq r seq =
     case sequence r seq of
-    OK _: Error "Token expected around \(r.location)";
     Token t: Token t;
     Error e: Error e;
+    OK _: Error "Token expected around \(r.location)";
     esac;
 
 punctuation expected r =
@@ -81,32 +81,37 @@ iriref r =
         greedy '[^\x00-\x20<>\\"{}|^`\\\\]', //!!! " or UCHAR
         required ">"];
 
-ifgood a b =
-    case a of
-    Error e: Error e;
-          _: b;
-    esac;
-
 base state r = 
     case tokseq r
        [whitespace,
-        iriref]
-    of
-        Token iri: State (state with { base = iri });
-        Error e: Error "Failed to read @base: \(e)";
+        iriref,
+        punctuation "."] of
+    Token iri: State (state with { base = iri });
+    Error e: Error "Failed to read base IRI: \(e)";
     esac;
+
+pnBaseRange =
+    "A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD";
+
+pnCharsBase = 
+    "[\(pnBaseRange)]";
+
+pnCharsU = 
+    "[\(pnBaseRange)_:]";
+
+pnChars = 
+    "[\(pnBaseRange)_:0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040-]";
 
 prefix state r =
     case tokseq r
        [whitespace,
-        greedy "[a-zA-Z]", //!!! not correct for PN_PREFIX
+        greedy pnCharsBase, //!!! not correct for PN_PREFIX
         required ":",
-        whitespace]
-    of
+        whitespace] of
     Token pname:
-        case iriref r of
+        case tokseq r [iriref, punctuation "."] of
         Token iri: State (state with {
-            namespaces = (h = copy (state.namespaces); h[pname ^ ":"] := iri; h)
+            namespaces = (h = copy (state.namespaces); h[pname] := iri; h)
             });
         Error e: Error "Failed to read prefix IRI: \(e)";
         esac;
@@ -124,17 +129,135 @@ directive state r =
     Error e: Error "Failed to read directive: \(e)";
     esac);
 
-triples state r = Triples [];
+prefixedNameLocal r =
+    greedy pnCharsU r; //!!! not correct
+
+prefixedName state r =
+    case tokseq r
+        [greedy pnCharsBase, //!!! not correct
+         required ":"] of
+    Token pname:
+        if pname in state.namespaces then
+            case prefixedNameLocal r of
+            Token local: IRI (state.namespaces[pname] ^ local);
+            esac
+        else
+            Error "Unknown namespace prefix '\(pname)' at \(r.location)";
+        fi;
+    Error e: Error e;
+    esac;
+
+blank state r =
+    Error "blank not implemented at \(r.location)";
+
+collection state r =
+    Error "collection not implemented at \(r.location)";
+
+literal state r =
+    Error "literal not implemented at \(r.location)";
+
+iri state r =
+    case r.next of
+    "<": case iriref r of Token t: IRI t; Error e: Error e; esac;
+      _: prefixedName state r;
+    esac;
+
+subject state r =
+   (node = case r.next of
+    "_": blank state r;
+    "(": collection state r;
+      _: iri state r;
+    esac;
+    case node of Error e: Error e; _: Node node; esac);
+
+predicate =
+    iri;
+
+blankNodePropertyList state r =
+    Error "blankNodePropertyList not implemented at \(r.location)";
+
+verb state r =
+   (i = iri state r; //!!! wrong -- can be IRI or "a" -- how to handle this?
+    println "read verb: \(i)";
+    i);
+
+object state r =
+   (node = case r.next of
+    "_": blank state r;
+    "(": collection state r;
+    "[": blankNodePropertyList state r;    
+    "<": iri state r;
+      _: if r.next =~ pnCharsBase or r.next == ":" then iri state r
+         else literal state r
+         fi;
+    esac;
+    case node of Error e: Error e; _: Node node; esac);
+
+objectList state r =
+    Error "objectList not implemented at \(r.location)";
+
+/*
+objectList state r =
+   (case object state r of
+    Error e: Error e;
+    Node node:
+       (case whitespace r of OK _: () esac;
+        if r.next == "," then
+            
+*/
+
+predicateObjectList state r =
+// Not right: predicateObjectList ::= verb objectList (';' predicateObjectList?)*
+// but this only reads one verb objectList
+   (case whitespace r of OK _:
+        case verb state r of Error e: Error e;
+        IRI iri: 
+            case objectList state r of Error e: Error e;
+            Nodes nodes:
+               POList (map do n:
+                       case n of Node node: { p = iri, o = node }; esac
+                       done nodes);
+            esac;
+        esac;
+    esac);            
+
+blankNodeTriples state r = 
+    case blankNodePropertyList state r of Error e: Error e;
+    Triples tt:
+       (subj = (head tt).s;
+        case predicateObjectList state r of Error e: Error e;
+        POList polist:
+           Triples (map do po: { s = subj, p = po.p, o = po.o } done polist)
+        esac);
+    esac;
+
+subjectTriples state r =
+    case subject state r of Error e: Error "Failed to read subject: \(e)";
+    Node subj:
+        case predicateObjectList state r of Error e: Error e;
+        POList polist:
+            if empty? polist then
+                Error "At least one predicate expected at \(r.location)"
+            else
+                Triples (map do po: { s = subj, p = po.p, o = po.o } done polist)
+           fi;
+        esac;
+    esac;
+
+triples state r = 
+    case r.next of
+    "[": blankNodeTriples state r;
+      _: subjectTriples state r;
+    esac;
 
 statement state r =
     case whitespace r of OK _:
         if r.isEof then End ()
         else
-            result = case r.next of
+            case r.next of
             "@": directive state r;
               _: triples   state r;
             esac;
-            ifgood result (ifgood (punctuation "." r) result);
         fi;
     esac;
 
@@ -152,13 +275,17 @@ document state r =
         [];
     esac);
 
-readDocument handle = 
+parse =
     document {
         base = "",
         namespaces = [:],
         bnodeLabels = [:],
-//        curSubject = "",
-//        curPredicate = ""
-    } (char.reader handle);
+    };
 
-{ readDocument }
+parseHandle handle = 
+    parse (char.reader handle);
+
+parseFile filename = 
+    parse (char.reader (openInFile filename "UTF-8")); // Turtle is always utf8
+
+{ parseHandle, parseFile }
