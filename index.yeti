@@ -60,12 +60,9 @@ match ix pat is index -> 'a -> list<'b> =
        (case ix.order of
         selector::rest:
             node = selector pat;
-            ifPresent n = if n in ix.tree then [n] else [] fi;
             matching = case node of
                        Wildcard _: keys ix.tree;
-                       URI _:      ifPresent node;
-                       Blank _:    ifPresent node;
-                       Literal _:  ifPresent node;
+                       _: if node in ix.tree then [node] else [] fi;
                        esac;
             map do m:
                 case ix.tree[m] of
