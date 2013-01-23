@@ -12,6 +12,9 @@ whitespace r =
         OK ()
     fi);
 
+chomp r = // read whitespace, discard, and return nothing
+   (case whitespace r of OK (): (); esac);
+
 required expected r =
     if r.next == expected then
        r.discard (); OK ()
@@ -25,14 +28,14 @@ greedy re r =
     Token tok);
 
 /**
- * Sequence of matches, of which at most one can be a token
- * match.
+ * Sequence of matches, of which at most one can be a match to
+ * something more substantial than an empty OK ().
  *
  * r is a reader; seq is a list of functions that take the
- * reader as arg and each return Token, OK, or Error.
+ * reader as arg and each return OK, or Error, or something else.
  *
  * Result is Error if any function in seq returns Error; else
- * Token if one function in seq returns Token; else OK.
+ * something non-empty if one function returns it; else OK.
  */
 sequence r seq =
    (sub acc r seq =
@@ -41,8 +44,8 @@ sequence r seq =
            (item = h r;
             case item of
             Error _: item;
-            Token _: sub item r t;
                OK _: sub acc r t;
+                  _: sub item r t;
             esac);
         _: acc;
         esac;
@@ -53,9 +56,9 @@ sequence r seq =
  */
 tokseq r seq =
     case sequence r seq of
-    Token t: Token t;
     Error e: Error e;
-    OK _: Error "Token expected around \(r.location)";
+    Token t: Token t;
+          _: Error "Token expected around \(r.location)";
     esac;
 
 punctuation expected r =
@@ -192,34 +195,36 @@ object state r =
          fi;
     esac;
     case node of Error e: Error e; _: Node node; esac);
-
-objectList state r =
-    Error "objectList not implemented at \(r.location)";
-
 /*
-objectList state r =
-   (case object state r of
-    Error e: Error e;
+objectNodeList state r =
+   (obj = object state r;
+    case obj of Error _: obj;
     Node node:
-       (case whitespace r of OK _: () esac;
+       (chomp r;
         if r.next == "," then
-            
+            r.discard ();
+            obj :: objectNodeList state r;
+        else
+            [obj]
+        fi);
+    esac);
 */
+objectList state r =
+    Error "nope";    
 
 predicateObjectList state r =
 // Not right: predicateObjectList ::= verb objectList (';' predicateObjectList?)*
 // but this only reads one verb objectList
-   (case whitespace r of OK _:
-        case verb state r of Error e: Error e;
-        IRI iri: 
-            case objectList state r of Error e: Error e;
-            Nodes nodes:
-               POList (map do n:
-                       case n of Node node: { p = iri, o = node }; esac
-                       done nodes);
-            esac;
+   (chomp r;
+    case verb state r of Error e: Error e;
+    IRI iri: 
+        case objectList state r of Error e: Error e;
+        Nodes nodes:
+           POList (map do n:
+                   case n of Node node: { p = iri, o = node }; esac
+                   done nodes);
         esac;
-    esac);            
+    esac);
 
 blankNodeTriples state r = 
     case blankNodePropertyList state r of Error e: Error e;
@@ -251,15 +256,14 @@ triples state r =
     esac;
 
 statement state r =
-    case whitespace r of OK _:
-        if r.isEof then End ()
-        else
-            case r.next of
-            "@": directive state r;
-              _: triples   state r;
-            esac;
-        fi;
-    esac;
+   (chomp r;
+    if r.isEof then End ()
+    else
+        case r.next of
+        "@": directive state r;
+          _: triples   state r;
+        esac;
+    fi);
 
 document state r =
    (println "state = \(state)";
