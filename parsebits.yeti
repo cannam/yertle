@@ -1,69 +1,70 @@
 
 module parsebits;
 
-whitespace r =
-   (r.isWhitespace loop r.discard ();
+whitespace state =
+   (r = state.reader;
+    r.isWhitespace loop r.discard ();
     if r.next == "#" then
         not r.isEol loop r.discard ();
-        whitespace r;
+        whitespace state;
     else
         OK (Empty ());
     fi);
 
-chomp r = // read whitespace, discard, and return nothing
-   (case whitespace r of OK _: (); esac);
+chomp state = // read whitespace, discard, and return nothing
+   (case whitespace state of OK _: (); esac);
 
-required expected r =
-    if r.next == expected then
-       r.discard (); OK (Empty ());
+required expected state =
+    if state.reader.next == expected then
+       state.reader.discard (); OK (Empty ());
     else
-       Error "Expected '\(expected)', found '\(r.next)' at \(r.location)";
+       Error "Expected '\(expected)', found '\(state.reader.next)' at \(state.reader.location)";
     fi;
 
-greedy re r =
+greedy re state =
    (var tok = "";
-    r.next =~ re loop tok := tok ^ (r.read ());
+    state.reader.next =~ re loop tok := tok ^ (state.reader.read ());
     OK (Token tok));
 
 // Given result a and function b, if a is an Error, return that
 // error; if a is an OK, pass its value to b and return that
 (~>) a b is 'a -> 'b -> (OK 'c | Error 'd) =
     case a of
-    OK k: b k;
+    OK result: b result;
     Error e: Error e;
     esac;
 
 // Carry out a sequence of matches; if all return OK, return OK and
 // a list of results. If any returns Error, return Error.
 //???
-sequence_n_all r seq =
+sequence_n_all state seq =
     case seq of
     f::rest:
-        f r ~>
-        do k: sequence_n_all r rest ~>
+        f state ~>
+        do k: sequence_n_all state rest ~>
             do s: OK (k::s) done
         done;
     _: OK [];
     esac;
 
-noseq r seq =
+noseq state seq =
     case seq of
-    f::rest: f r ~> \(noseq r rest);
+    f::rest: f state ~> \(noseq state rest);
     _: OK (Empty ());
     esac;
 
-tokseq r seq =
-   (sub acc r seq =
+tokseq state seq =
+   (sub acc state seq =
         case seq of
         f::rest:
-            f r ~>
+            f state ~>
            \case of
-            Token t: sub (OK (Token t)) r rest;
-                  _: sub acc r rest;
+            Token t: sub (OK (Token t)) state rest;
+                  _: sub acc state rest;
             esac;
         _: acc;
         esac;
-    sub (Error "No token found at \(r.location)") r seq);
+    sub (Error "No token found at \(state.reader.location)") state seq);
 
 { whitespace, chomp, required, greedy, ~>, noseq, tokseq }
 

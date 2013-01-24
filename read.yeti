@@ -5,32 +5,11 @@ char = load char;
 
 load parsebits;
 
-punctuation expected r =
-    noseq r [whitespace, required expected];
-
-langtag r =
-   (sub r = 
-        case greedy "[a-zA-Z]" r of
-        OK (Token tag):
-            if r.next == "-" then tag ^ r.read () ^ sub r
-            else tag
-            fi;
-        esac;
-    tokseq r [required "@", OK . Token . sub]);
-
-iriref r =
-    tokseq r [required "<",
-              greedy '[^\x00-\x20<>\\"{}|^`\\\\]', //!!! " or UCHAR
-              required ">"];
-        
-base state r = 
-    tokseq r [whitespace, iriref, punctuation "."] ~>
-       \case of
-        Token iri: OK (State (state with { base = iri }));
-        esac;
+rdfTypeIRI = IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+xsdPrefix = IRI "http://www.w3.org/2001/XMLSchema#";
 
 pnBaseRange =
-    "A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD";
+    "A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD";
 
 pnCharsBase = 
     "[\(pnBaseRange)]";
@@ -39,14 +18,40 @@ pnCharsU =
     "[\(pnBaseRange)_:]";
 
 pnChars = 
-    "[\(pnBaseRange)_:0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040-]";
+    "[\(pnBaseRange)_:0-9\u00B7\u0300-\u036F\u203F-\u2040-]";
 
-prefix state r =
-    tokseq r [whitespace,
+newLiteral string = { value = string, type = "", language = "" };
+
+punctuation expected state =
+    noseq state [whitespace, required expected];
+
+langtag state =
+   (sub state = 
+        case greedy "[a-zA-Z]" state of
+        OK (Token tag):
+            if state.reader.next == "-" then tag ^ state.reader.read () ^ sub state
+            else tag
+            fi;
+        esac;
+        tokseq state [required "@", OK . Token . sub]);
+
+iriref state =
+    tokseq state [required "<",
+              greedy "[^\\x00-\\x20<>\"{}|^`\\\\]", //!!! " or UCHAR
+              required ">"];
+        
+base state = 
+    tokseq state [whitespace, iriref, punctuation "."] ~>
+       \case of
+        Token iri: OK (State (state with { base = iri }));
+        esac;
+
+prefix state =
+    tokseq state [whitespace,
               greedy pnCharsBase, //!!! not correct for PN_PREFIX
               required ":", whitespace] ~>
        \case of Token pname:
-            tokseq r [iriref, punctuation "."] ~>
+            tokseq state [iriref, punctuation "."] ~>
                \case of Token iri:
                     OK (State (state with {
                         namespaces =
@@ -55,120 +60,206 @@ prefix state r =
                 esac;
         esac;
 
-directive state r =
-    langtag r ~>
+directive state =
+    langtag state ~>
        \case of
-        Token "prefix": prefix state r;
-        Token "base": base state r;
+        Token "prefix": prefix state;
+        Token "base": base state;
         Token t: Error "Expected prefix or base, found '\(t)'";
         esac;
 
-prefixedNameLocal r =
-    greedy pnCharsU r; //!!! not correct
+prefixedNameLocal state p =
+    case p of Token pname:
+        if pname in state.namespaces then
+            greedy pnCharsU state ~> //!!! not really right (for PN_LOCAL)
+               \case of Token local:
+                    OK (IRI (state.namespaces[pname] ^ local));
+                esac
+        else
+            Error "Unknown namespace prefix '\(pname)' at \(state.reader.location)";
+        fi;
+    esac;
 
-prefixedName state r =
-    tokseq r
+prefixedName state =
+    tokseq state
         [greedy pnCharsBase, //!!! not correct
          required ":"] ~>
+        prefixedNameLocal state;
+
+aOrPrefixedName state =
+    greedy pnCharsBase state ~> //!!! not correct
        \case of Token pname:
-            if pname in state.namespaces then
-                prefixedNameLocal r ~>
-                   \case of Token local:
-                        OK (IRI (state.namespaces[pname] ^ local));
-                    esac
+            if state.reader.next == ":" then
+               (state.reader.discard ();
+                prefixedNameLocal state (Token pname));
+            elif pname == "a" and state.reader.isWhitespace then
+                OK rdfTypeIRI;
             else
-                Error "Unknown namespace prefix '\(pname)' at \(r.location)";
-            fi;
+                Error "Expected 'a' or prefix at \(state.reader.location)";
+            fi
         esac;
 
-blank state r =
-    Error "blank not implemented at \(r.location)";
+blank state =
+    Error "blank not implemented at \(state.reader.location)";
 
-collection state r =
-    Error "collection not implemented at \(r.location)";
+collection state =
+    Error "collection not implemented at \(state.reader.location)";
 
-literal state r =
-    Error "literal not implemented at \(r.location)";
+booleanType =
+    "\(xsdPrefix)boolean";
 
-iri state r =
-    case r.next of
-    "<": iriref r ~> \case of Token t: OK (IRI t); esac;
-      _: prefixedName state r;
+booleanLiteral state =
+    greedy "[a-z]" state ~>
+       \case of 
+        Token  "true": OK (Literal (newLiteral "true" with { type = booleanType }));
+        Token "false": OK (Literal (newLiteral "false" with { type = booleanType }));
+        _: Error "Expected 'true' or 'false' at \(state.reader.location)";
+        esac;
+
+//!!! doesn't handle multi-line literals (''' or """), escapes, \u \U,
+//languages, datatype etc
+rdfLiteral state =
+   (quote = state.reader.next;
+    if quote != '"' and quote != "'" then //"
+        Error "Expected quotation mark at \(state.reader.location)";
+    else
+        state.reader.discard ();
+        tokseq state [ greedy "[^\\x5c\\x0a\\x0d\(quote)]", required quote ] ~>
+           \case of
+            Token t: OK (Literal (newLiteral t));
+            esac ~> do lit:
+                if state.reader.next == "@" then
+                    case lit of Literal litstr:
+                        langtag state ~> 
+                           \case of
+                            Token language: OK (Literal (litstr with { language }));
+                            esac;
+                    esac;
+                else
+                    OK lit;
+                fi;
+            done;
+    fi);
+
+numericLiteral state =
+    try
+        greedy "[0-9eE+-]" state ~> 
+           \case of
+            Token n:
+                type = if n =~ "[Ee]" then "\(xsdPrefix)double"
+                       elif n =~ "\\." then "\(xsdPrefix)decimal"
+                       else "\(xsdPrefix)integer"
+                       fi;
+                OK (Literal (newLiteral "\(number n)" with { type }));
+            esac;
+    catch NumberFormatException _:
+        Error "Malformed numeric literal at \(state.reader.location)";
+    yrt;
+
+// [13] literal ::= RDFLiteral | NumericLiteral | BooleanLiteral
+literal state =
+    case state.reader.next of
+    "'": rdfLiteral state;
+    '"': rdfLiteral state;   // "
+    "t": booleanLiteral state;
+    "f": booleanLiteral state;
+      _: numericLiteral state;
     esac;
-/*
-subject state r =
-   (node = case r.next of
-    "_": blank state r;
-    "(": collection state r;
-      _: iri state r;
+
+literal state = Error "Literal not currently implemented";
+
+// [135s] iri ::= IRIREF | PrefixedName
+iri state =
+    case state.reader.next of
+    "<": iriref state ~> \case of Token t: OK (IRI t); esac;
+      _: prefixedName state;
     esac;
-    case node of Error e: Error e; _: OK (Node node); esac);
-*/
-subject state r =
-    case r.next of
-    "_": blank state r;
-    "(": collection state r;
-      _: iri state r;
+
+// [9] verb ::= predicate | 'a'
+// where
+// [11] predicate ::= iri
+verb state =
+    case state.reader.next of
+    "<": iri state;
+      _: aOrPrefixedName state;
+    esac;
+
+// [10] subject ::= iri | blank
+subject state =
+    case state.reader.next of
+    "_": blank state;
+    "(": collection state;
+      _: iri state;
     esac ~> (OK . Node);
 
-predicate =
-    iri;
+blankNodePropertyList state =
+    Error "blankNodePropertyList not implemented at \(state.reader.location)";
 
-blankNodePropertyList state r =
-    Error "blankNodePropertyList not implemented at \(r.location)";
-
-verb state r =
-   (i = iri state r; //!!! wrong -- can be IRI or "a" -- how to handle this?
-    println "read verb: \(i)";
-    i);
-
-object state r =
-    case r.next of
-    "_": blank state r;
-    "(": collection state r;
-    "[": blankNodePropertyList state r;    
-    "<": iri state r;
-    ":": iri state r;
-      _: if r.next =~ pnCharsBase then iri state r
-         else literal state r
+// [12] object ::= iri | blank | blankNodePropertyList | literal
+object state =
+    case state.reader.next of
+    "_": blank state;
+    "(": collection state;
+    "[": blankNodePropertyList state;    
+    "<": iri state;
+    ":": iri state;
+      _: if state.reader.next =~ pnCharsBase then iri state
+         else literal state
          fi;
     esac ~> (OK . Node);
-/*
-objectNodeList state r =
-   (obj = object state r;
-    case obj of Error _: obj;
-    Node node:
-       (chomp r;
-        if r.next == "," then
-            r.discard ();
-            obj :: objectNodeList state r;
-        else
-            [obj]
-        fi);
-    esac);
-*/
-objectList state r =
-    Error "objectList not implemented";    
 
-predicateObjectList state r =
-// Not right: predicateObjectList ::= verb objectList (';' predicateObjectList?)*
-// but this only reads one verb objectList
-   (chomp r;
-    verb state r ~>
+// [8] objectList ::= object (',' object)*
+//!!! not tail-recursive
+objectList state =
+   (chomp state;
+    object state ~>
+       \case of Node n:
+           (chomp state;
+            if state.reader.next == "," then
+               (state.reader.discard ();
+                objectList state ~>
+                   \case of Nodes nodes:
+                        OK (Nodes ((Node n)::nodes));
+                    esac);
+            else
+                OK (Nodes [Node n])
+            fi);
+        esac
+    );
+
+// [7] predicateObjectList ::= verb objectList (';' predicateObjectList?)*
+//!!! Hm, this is not tail-recursive I think? and I don't like it
+predicateObjectList' acc state =
+   (chomp state;
+    verb state ~>
        \case of IRI iri:
-            objectList state r ~>
+            objectList state ~>
                \case of Nodes nodes:
                     OK (POList
-                        (map \case of Node node: { p = iri, o = node } esac
-                              nodes));
+                        (acc ++
+                         (map \case of Node node: { p = iri, o = node } esac
+                              nodes)));
                 esac;
-        esac);
+        esac ~>
+           \case of POList lst:
+               (chomp state;
+                if state.reader.next == ";" then
+                   (state.reader.discard ();
+                    predicateObjectList' lst state)
+                else
+                    OK (POList lst)
+                fi);
+            esac;
+    );
 
-blankNodeTriples state r = 
-    blankNodePropertyList state r ~>
+predicateObjectList state =
+   predicateObjectList' [] state;
+
+blankNodeTriples state = 
+    blankNodePropertyList state ~>
        \case of Triples tt:
            (subj = (head tt).s;
-            predicateObjectList state r ~>
+            predicateObjectList state ~>
                \case of POList polist:
                     OK (Triples
                         (map do po: { s = subj, p = po.p, o = po.o } done
@@ -177,13 +268,13 @@ blankNodeTriples state r =
             );
         esac;
 
-subjectTriples state r =
-    subject state r ~>
+subjectTriples state =
+    subject state ~>
        \case of Node subj:
-            predicateObjectList state r ~>
+            predicateObjectList state ~>
                \case of POList polist:
                     if empty? polist then
-                        Error "At least one predicate expected at \(r.location)"
+                        Error "At least one predicate expected at \(state.reader.location)"
                     else
                         OK (Triples
                             (map do po: { s = subj, p = po.p, o = po.o } done
@@ -192,38 +283,44 @@ subjectTriples state r =
                 esac;
         esac;
 
-triples state r = 
-    case r.next of
-    "[": blankNodeTriples state r;
-      _: subjectTriples state r;
+triples state = 
+    case state.reader.next of
+    "[": blankNodeTriples state;
+      _: subjectTriples state;
     esac;
 
-statement state r =
-   (chomp r;
-    if r.isEof then End ()
+statement state =
+   (chomp state;
+    if state.reader.isEof then End ()
     else
-        case r.next of
-        "@": directive state r;
-          _: triples   state r;
+        case state.reader.next of
+        "@":
+            directive state;
+          _:
+            triples state ~>
+               \case of
+                Triples tt: punctuation "." state ~> \(OK (Triples tt));
+                esac;
         esac;
     fi);
 
-document state r =
+document state =
    (println "state = \(state)";
-    result = statement state r;
+    result = statement state;
     case result of
     OK (State newstate):
-        document newstate r;
+        document newstate;
     OK (Triples t):
-        result :. \(document state r);
+        result :. \(document state);
     Error text:
         [result];
     End _:
         [];
     esac);
 
-parse =
+parse reader =
     document {
+        reader,
         base = "",
         namespaces = [:],
         bnodeLabels = [:],
