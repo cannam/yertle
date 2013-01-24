@@ -68,8 +68,8 @@ directive state =
         Token t: Error "Expected prefix or base, found '\(t)'";
         esac;
 
-prefixedNameLocal state p =
-    case p of Token pname:
+prefixedNameLocal state =
+   \case of Token pname:
         if pname in state.namespaces then
             greedy pnCharsU state ~> //!!! not really right (for PN_LOCAL)
                \case of Token local:
