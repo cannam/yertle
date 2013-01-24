@@ -1,0 +1,69 @@
+
+module parsebits;
+
+whitespace r =
+   (r.isWhitespace loop r.discard ();
+    if r.next == "#" then
+        not r.isEol loop r.discard ();
+        whitespace r;
+    else
+        OK (Empty ());
+    fi);
+
+chomp r = // read whitespace, discard, and return nothing
+   (case whitespace r of OK _: (); esac);
+
+required expected r =
+    if r.next == expected then
+       r.discard (); OK (Empty ());
+    else
+       Error "Expected '\(expected)', found '\(r.next)' at \(r.location)";
+    fi;
+
+greedy re r =
+   (var tok = "";
+    r.next =~ re loop tok := tok ^ (r.read ());
+    OK (Token tok));
+
+// Given result a and function b, if a is an Error, return that
+// error; if a is an OK, pass its value to b and return that
+(~>) a b is 'a -> 'b -> (OK 'c | Error 'd) =
+    case a of
+    OK k: b k;
+    Error e: Error e;
+    esac;
+
+// Carry out a sequence of matches; if all return OK, return OK and
+// a list of results. If any returns Error, return Error.
+//???
+sequence_n_all r seq =
+    case seq of
+    f::rest:
+        f r ~>
+        do k: sequence_n_all r rest ~>
+            do s: OK (k::s) done
+        done;
+    _: OK [];
+    esac;
+
+noseq r seq =
+    case seq of
+    f::rest: f r ~> \(noseq r rest);
+    _: OK (Empty ());
+    esac;
+
+tokseq r seq =
+   (sub acc r seq =
+        case seq of
+        f::rest:
+            f r ~>
+           \case of
+            Token t: sub (OK (Token t)) r rest;
+                  _: sub acc r rest;
+            esac;
+        _: acc;
+        esac;
+    sub (Error "No token found at \(r.location)") r seq);
+
+{ whitespace, chomp, required, greedy, ~>, noseq, tokseq }
+

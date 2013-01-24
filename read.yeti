@@ -3,98 +3,10 @@ module read;
 
 char = load char;
 
-whitespace r =
-   (r.isWhitespace loop r.discard ();
-    if r.next == "#" then
-        not r.isEol loop r.discard ();
-        whitespace r;
-    else
-        OK (Empty ());
-    fi);
-
-chomp r = // read whitespace, discard, and return nothing
-   (case whitespace r of OK _: (); esac);
-
-required expected r =
-    if r.next == expected then
-       r.discard (); OK (Empty ());
-    else
-       Error "Expected '\(expected)', found '\(r.next)' at \(r.location)";
-    fi;
-
-greedy re r =
-   (var tok = "";
-    r.next =~ re loop tok := tok ^ (r.read ());
-    OK (Token tok));
-
-// Given result a and function b, if a is an Error, return that
-// error; if a is an OK, pass its value to b and return that
-(-->) a b is 'a -> 'b -> (Error 'c | OK 'd) =
-    case a of
-    OK k: b k;
-    Error e: Error e;
-    esac;
-
-// Carry out a sequence of matches; if all return OK, return OK and
-// a list of results. If any returns Error, return Error.
-sequence_n_all r seq =
-    case seq of
-    f::rest:
-        f r -->
-        do k: sequence_n_all r rest -->
-            do s: OK (k::s) done
-        done;
-    _: OK [];
-    esac;
- 
-// Carry out a sequence of matches; if all return OK, return OK and
-// a list of non-Empty results. If any returns Error, return Error.
-sequence_n r seq =
-    case sequence_n_all r seq of
-    OK lst:
-        OK (filter do e:
-                case e of
-                Empty _: false;
-                      _: true;
-                esac
-            done lst);
-    Error e: Error e;
-    esac;
-
-/*
-sequence_n r seq =
-   (sub acc r seq =
-        case seq of
-        h::t:
-            case h r of
-            OK k:
-                case k of 
-                Empty _: sub acc r t;
-                      _: sub (acc ++ [k]) r t;
-                esac;
-            Error e: Error e;
-            esac;
-        _: OK acc;
-        esac;
-    case sub [] r seq of
-    Error 
-    OK k: OK (List (sub [] r seq)));
-*/
-// As sequence_n but returning at most one answer.
-sequence_1 r seq =
-    case sequence_n r seq of
-        OK []: Error "Internal error: Result expected at \(r.location)";
-        OK tt:
-           (h = head tt;
-            case h of
-            Empty _: Error "Internal error: sequence_n returned an empty element at \(r.location)";
-                  _: h;
-            esac);
-        Error e: Error e;
-    esac;
+load parsebits;
 
 punctuation expected r =
-    sequence_1 r [whitespace, required expected];
+    noseq r [whitespace, required expected];
 
 langtag r =
    (sub r = 
@@ -104,18 +16,18 @@ langtag r =
             else tag
             fi;
         esac;
-    sequence_1 r [required "@", OK . Token . sub]);
+    tokseq r [required "@", OK . Token . sub]);
 
 iriref r =
-    sequence_1 r [required "<",
-                  greedy '[^\x00-\x20<>\\"{}|^`\\\\]', //!!! " or UCHAR
-                  required ">"];
+    tokseq r [required "<",
+              greedy '[^\x00-\x20<>\\"{}|^`\\\\]', //!!! " or UCHAR
+              required ">"];
         
 base state r = 
-    case sequence_1 r [whitespace, iriref, punctuation "."] of
-    OK (Token iri): OK (State (state with { base = iri }));
-    Error e: Error "Failed to read base IRI: \(e)";
-    esac;
+    tokseq r [whitespace, iriref, punctuation "."] ~>
+       \case of
+        Token iri: OK (State (state with { base = iri }));
+        esac;
 
 pnBaseRange =
     "A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD";
@@ -130,47 +42,44 @@ pnChars =
     "[\(pnBaseRange)_:0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040-]";
 
 prefix state r =
-    case sequence_1 r [whitespace,
-                       greedy pnCharsBase, //!!! not correct for PN_PREFIX
-                       required ":", whitespace] of
-    OK (Token pname):
-        case sequence_1 r [iriref, punctuation "."] of
-        OK (Token iri): OK (State (state with {
-            namespaces = (h = copy (state.namespaces); h[pname] := iri; h)
-            }));
-        Error e: Error "Failed to read prefix IRI: \(e)";
+    tokseq r [whitespace,
+              greedy pnCharsBase, //!!! not correct for PN_PREFIX
+              required ":", whitespace] ~>
+       \case of Token pname:
+            tokseq r [iriref, punctuation "."] ~>
+               \case of Token iri:
+                    OK (State (state with {
+                        namespaces =
+                            (h = copy (state.namespaces); h[pname] := iri; h)
+                        }));
+                esac;
         esac;
-    Error e: Error "Failed to read prefix name: \(e)";
-    esac;
 
 directive state r =
-   (case langtag r of
-    OK (Token t):
-        case t of
-        "prefix": prefix state r;
-          "base": base state r;
-               _: Error "Expected prefix or base, found '\(t)'";
+    langtag r ~>
+       \case of
+        Token "prefix": prefix state r;
+        Token "base": base state r;
+        Token t: Error "Expected prefix or base, found '\(t)'";
         esac;
-    Error e: Error "Failed to read directive: \(e)";
-    esac);
 
 prefixedNameLocal r =
     greedy pnCharsU r; //!!! not correct
 
 prefixedName state r =
-    case tokseq r
+    tokseq r
         [greedy pnCharsBase, //!!! not correct
-         required ":"] of
-    OK (Token pname):
-        if pname in state.namespaces then
-            case prefixedNameLocal r of
-            OK (Token local): OK (IRI (state.namespaces[pname] ^ local));
-            esac
-        else
-            Error "Unknown namespace prefix '\(pname)' at \(r.location)";
-        fi;
-    Error e: Error e;
-    esac;
+         required ":"] ~>
+       \case of Token pname:
+            if pname in state.namespaces then
+                prefixedNameLocal r ~>
+                   \case of Token local:
+                        OK (IRI (state.namespaces[pname] ^ local));
+                    esac
+            else
+                Error "Unknown namespace prefix '\(pname)' at \(r.location)";
+            fi;
+        esac;
 
 blank state r =
     Error "blank not implemented at \(r.location)";
@@ -183,10 +92,10 @@ literal state r =
 
 iri state r =
     case r.next of
-    "<": case iriref r of OK (Token t): OK (IRI t); Error e: Error e; esac;
+    "<": iriref r ~> \case of Token t: OK (IRI t); esac;
       _: prefixedName state r;
     esac;
-
+/*
 subject state r =
    (node = case r.next of
     "_": blank state r;
@@ -194,6 +103,13 @@ subject state r =
       _: iri state r;
     esac;
     case node of Error e: Error e; _: OK (Node node); esac);
+*/
+subject state r =
+    case r.next of
+    "_": blank state r;
+    "(": collection state r;
+      _: iri state r;
+    esac ~> (OK . Node);
 
 predicate =
     iri;
@@ -207,16 +123,16 @@ verb state r =
     i);
 
 object state r =
-   (node = case r.next of
+    case r.next of
     "_": blank state r;
     "(": collection state r;
     "[": blankNodePropertyList state r;    
     "<": iri state r;
-      _: if r.next =~ pnCharsBase or r.next == ":" then iri state r
+    ":": iri state r;
+      _: if r.next =~ pnCharsBase then iri state r
          else literal state r
          fi;
-    esac;
-    case node of Error e: Error e; _: OK (Node node); esac);
+    esac ~> (OK . Node);
 /*
 objectNodeList state r =
    (obj = object state r;
@@ -232,44 +148,49 @@ objectNodeList state r =
     esac);
 */
 objectList state r =
-    Error "nope";    
+    Error "objectList not implemented";    
 
 predicateObjectList state r =
 // Not right: predicateObjectList ::= verb objectList (';' predicateObjectList?)*
 // but this only reads one verb objectList
    (chomp r;
-    case verb state r of Error e: Error e;
-    OK (IRI iri):
-        case objectList state r of Error e: Error e;
-        OK (Nodes nodes):
-           OK (POList (map do n:
-                       case n of Node node: { p = iri, o = node }; esac
-                       done nodes));
-        esac;
-    esac);
+    verb state r ~>
+       \case of IRI iri:
+            objectList state r ~>
+               \case of Nodes nodes:
+                    OK (POList
+                        (map \case of Node node: { p = iri, o = node } esac
+                              nodes));
+                esac;
+        esac);
 
 blankNodeTriples state r = 
-    case blankNodePropertyList state r of Error e: Error e;
-    OK (Triples tt):
-       (subj = (head tt).s;
-        case predicateObjectList state r of Error e: Error e;
-        OK (POList polist):
-           OK (Triples (map do po: { s = subj, p = po.p, o = po.o } done polist));
-        esac);
-    esac;
+    blankNodePropertyList state r ~>
+       \case of Triples tt:
+           (subj = (head tt).s;
+            predicateObjectList state r ~>
+               \case of POList polist:
+                    OK (Triples
+                        (map do po: { s = subj, p = po.p, o = po.o } done
+                             polist));
+                esac
+            );
+        esac;
 
 subjectTriples state r =
-    case subject state r of Error e: Error "Failed to read subject: \(e)";
-    OK (Node subj):
-        case predicateObjectList state r of Error e: Error e;
-        OK (POList polist):
-            if empty? polist then
-                Error "At least one predicate expected at \(r.location)"
-            else
-                OK (Triples (map do po: { s = subj, p = po.p, o = po.o } done polist))
-           fi;
+    subject state r ~>
+       \case of Node subj:
+            predicateObjectList state r ~>
+               \case of POList polist:
+                    if empty? polist then
+                        Error "At least one predicate expected at \(r.location)"
+                    else
+                        OK (Triples
+                            (map do po: { s = subj, p = po.p, o = po.o } done
+                                 polist))
+                    fi;
+                esac;
         esac;
-    esac;
 
 triples state r = 
     case r.next of
