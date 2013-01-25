@@ -3,9 +3,9 @@ module parsebits;
 
 whitespace state =
    (r = state.reader;
-    r.isWhitespace loop r.discard ();
+    r.isWhitespace and not r.isEof loop r.discard ();
     if r.next == "#" then
-        not r.isEol loop r.discard ();
+        not r.isEol and not r.isEof loop r.discard ();
         whitespace state;
     else
         OK (Empty ());

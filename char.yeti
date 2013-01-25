@@ -8,8 +8,8 @@ reader handle =
     var charno = 0;
     ws c = (strIndexOf "\n\t\r " c 0 >= 0);
     eol c = (c == "\n" or c == "\r");
-    reload () = (
-        nextchar := handle.read 1;
+    reload () =
+       (nextchar := handle.read 1;
         if eol nextchar then colno := 1; lineno := lineno + 1;
         else colno := colno + 1;
         fi;

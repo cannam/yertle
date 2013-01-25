@@ -29,16 +29,18 @@ langtag state =
    (sub state = 
         case greedy "[a-zA-Z]" state of
         OK (Token tag):
-            if state.reader.next == "-" then tag ^ state.reader.read () ^ sub state
-            else tag
+            if state.reader.next == "-" then
+                tag ^ state.reader.read () ^ sub state
+            else
+                tag
             fi;
         esac;
         tokseq state [required "@", OK . Token . sub]);
 
 iriref state =
     tokseq state [required "<",
-              greedy "[^\\x00-\\x20<>\"{}|^`\\\\]", //!!! " or UCHAR
-              required ">"];
+                  greedy "[^\\x00-\\x20<>\"{}|^`\\\\]", //!!! " or UCHAR
+                  required ">"];
         
 base state = 
     tokseq state [whitespace, iriref, punctuation "."] ~>
@@ -68,8 +70,8 @@ directive state =
         Token t: Error "Expected prefix or base, found '\(t)'";
         esac;
 
-prefixedNameLocal state =
-   \case of Token pname:
+prefixedNameLocal state p =
+    case p of Token pname:
         if pname in state.namespaces then
             greedy pnCharsU state ~> //!!! not really right (for PN_LOCAL)
                \case of Token local:
@@ -126,19 +128,12 @@ rdfLiteral state =
         state.reader.discard ();
         tokseq state [ greedy "[^\\x5c\\x0a\\x0d\(quote)]", required quote ] ~>
            \case of
-            Token t: OK (Literal (newLiteral t));
-            esac ~> do lit:
-                if state.reader.next == "@" then
-                    case lit of Literal litstr:
-                        langtag state ~> 
-                           \case of
-                            Token language: OK (Literal (litstr with { language }));
-                            esac;
-                    esac;
-                else
-                    OK lit;
-                fi;
-            done;
+            Token t:
+                case langtag state of
+                OK (Token lt): OK (Literal (newLiteral t with { language = lt }));
+                Error _: OK (Literal (newLiteral t));
+                esac;
+            esac;
     fi);
 
 numericLiteral state =
@@ -165,8 +160,6 @@ literal state =
     "f": booleanLiteral state;
       _: numericLiteral state;
     esac;
-
-literal state = Error "Literal not currently implemented";
 
 // [135s] iri ::= IRIREF | PrefixedName
 iri state =
@@ -195,18 +188,21 @@ subject state =
 blankNodePropertyList state =
     Error "blankNodePropertyList not implemented at \(state.reader.location)";
 
-// [12] object ::= iri | blank | blankNodePropertyList | literal
-object state =
+nonLiteralObject state =
     case state.reader.next of
     "_": blank state;
     "(": collection state;
-    "[": blankNodePropertyList state;    
-    "<": iri state;
-    ":": iri state;
-      _: if state.reader.next =~ pnCharsBase then iri state
-         else literal state
-         fi;
+    "[": blankNodePropertyList state;
+      _: iri state;
     esac ~> (OK . Node);
+
+// [12] object ::= iri | blank | blankNodePropertyList | literal
+object state =
+    if state.reader.next =~ "[_(\\[<:\(pnCharsBase)]" then
+        nonLiteralObject state
+    else
+        literal state ~> (OK . Node)
+    fi;
 
 // [8] objectList ::= object (',' object)*
 //!!! not tail-recursive
@@ -305,26 +301,40 @@ statement state =
     fi);
 
 document state =
-   (println "state = \(state)";
-    result = statement state;
+   (result = statement state;
     case result of
     OK (State newstate):
         document newstate;
     OK (Triples t):
-        result :. \(document state);
-    Error text:
-        [result];
-    End _:
-        [];
+        (Triples t) :. \(document state);
+    Error e: [Error e];
+    End _: [];
     esac);
 
+// Flatten out [OK Triples [...], OK Triples [...], Error ...]
+// into [Triple ..., Triple ..., Error ...]
+parse' doc currentTriples =
+    case currentTriples of
+    t::tt:
+        (Triple t) :. \(parse' doc tt);
+    _:
+        case doc of
+        element::ee:
+            case element of
+            Error e: [Error e];
+            Triples chunk: parse' ee chunk;
+            esac;
+        _: [];
+        esac;
+    esac;
+
 parse reader =
-    document {
+    parse' (document {
         reader,
         base = "",
         namespaces = [:],
         bnodeLabels = [:],
-    };
+    }) [];
 
 parseHandle handle = 
     parse (char.reader handle);
