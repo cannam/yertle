@@ -20,6 +20,9 @@ pnCharsU =
 pnChars = 
     "[\(pnBaseRange)_:0-9\u00B7\u0300-\u036F\u203F-\u2040-]";
 
+pnCharsNoColon = //!!! See comment at pnPrefix below
+    "[\(pnBaseRange)_0-9\u00B7\u0300-\u036F\u203F-\u2040-]";
+
 newLiteral string = { value = string, type = "", language = "" };
 
 punctuation expected state =
@@ -48,10 +51,24 @@ base state =
         Token iri: OK (State (state with { base = iri }));
         esac;
 
+//!!! Ah, no -- we can't do this with only one char lookahead.
+// A prefix can have a . in it, but not as the final character.
+// Also, crazily, ":" appears to be permitted in a prefix!
+// (as in @prefix myprefix:: <http://example.com/>)
+// For now we'll just reject . and : in prefix string...
+pnPrefix state =
+    greedy pnCharsBase state ~>
+       \case of Token base:
+           greedy pnCharsNoColon state ~>
+               \case of Token rest:
+                OK (Token (base ^ rest));
+                esac;
+        esac;
+
 prefix state =
     tokseq state [whitespace,
-              greedy pnCharsBase, //!!! not correct for PN_PREFIX
-              required ":", whitespace] ~>
+                  pnPrefix,
+                  required ":", whitespace] ~>
        \case of Token pname:
             tokseq state [iriref, punctuation "."] ~>
                \case of Token iri:
@@ -83,9 +100,7 @@ prefixedNameLocal state =
     esac;
 
 prefixedName state =
-    tokseq state
-        [greedy pnCharsBase, //!!! not correct
-         required ":"] ~>
+    tokseq state [pnPrefix, required ":"] ~>
         prefixedNameLocal state;
 
 aOrPrefixedName state =
