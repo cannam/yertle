@@ -40,7 +40,8 @@ pnCharsBase = "[\(pnBaseRange)]";
 pnCharsU    = "[\(pnBaseRange)_:]";
 pnChars     = "[\(pnBaseRange)_:0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040-]";
 pnPrefix    = "\(pnCharsBase)(?:(?:\(pnChars)|\\.)*\(pnChars))?";
-pnLocal     = "(?:\(pnCharsU)|[0-9])(?:(?:\(pnChars)|\\.)*(?:\(pnChars)))?";
+bnode       = "(?:\(pnCharsU)|[0-9])(?:(?:\(pnChars)|\\.)*(?:\(pnChars)))?";
+pnLocal     = "(?:\(pnCharsU)|[0-9])(?:(?:\(pnChars)|\\.)*(?:\(pnChars)))?"; //!!! needs PLX
 pname       = "(\(pnPrefix))?:(\(pnLocal))"; // NB this ?: is not like the rest
 
 pnameNS state =
@@ -112,8 +113,28 @@ aOrPrefixedName state =
         Token t: prefixExpanded state t;
         esac;
 
+blankNodeFor state b =
+//!!! oops -- this doesn't square with the way other functions work --
+//elsewhere we return either Token (etc) or State, and update the
+//state back in the dispatcher if State is returned. But this one
+//needs to return both something-parsed and a new state, so we can't
+//do that here.
+   (if not b in state.bnodeLabels then
+        state.bnodeLabels[b] := state.nextBnode;
+        state.nextBnode := state.nextBnode + 1;
+    fi;
+    Blank state.bnodeLabels[b]);
+
 blank state =
-    Error "blank not implemented at \(state.reader.location)";
+    tokseq state [required '_', required ':', notWhitespace] ~>
+       \case of
+        Token b:
+            if b =~ "^\(bnode)$" then
+                OK (blankNodeFor state b)
+            else
+                Error "Malformed blank node label \(b) at \(state.reader.location)";
+            fi;
+        esac;
 
 collection state =
     Error "collection not implemented at \(state.reader.location)";
@@ -345,6 +366,7 @@ parse reader =
         base = "",
         namespaces = [:],
         bnodeLabels = [:],
+        var nextBnode = 0, //!!! should be global within store
     }) [];
 
 parseHandle handle = 
