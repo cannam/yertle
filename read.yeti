@@ -8,21 +8,6 @@ load parsebits;
 rdfTypeIRI = IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 xsdPrefix = IRI "http://www.w3.org/2001/XMLSchema#";
 
-pnBaseRange =
-    "A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD";
-
-pnCharsBase = 
-    "[\(pnBaseRange)]";
-
-pnCharsU = 
-    "[\(pnBaseRange)_:]";
-
-pnChars = 
-    "[\(pnBaseRange)_:0-9\u00B7\u0300-\u036F\u203F-\u2040-]";
-
-pnCharsNoColon = //!!! See comment at pnPrefix below
-    "[\(pnBaseRange)_0-9\u00B7\u0300-\u036F\u203F-\u2040-]";
-
 newLiteral string = { value = string, type = "", language = "" };
 
 punctuation expected state =
@@ -44,39 +29,52 @@ iriref state =
     tokseq state [required "<",
                   greedy "[^\\x00-\\x20<>\"{}|^`\\\\]", //!!! " or UCHAR
                   required ">"];
-        
-base state = 
-    tokseq state [whitespace, iriref, punctuation "."] ~>
+
+// REs for prefix:local matching. Does not yet handle PLX (rule 169s)
+
+pnBaseRange = "A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD";
+
+//!!! NB Yeti docs say it will optimise REs made from constant
+//strings: how should we take advantage of that?
+pnCharsBase = "[\(pnBaseRange)]";
+pnCharsU    = "[\(pnBaseRange)_:]";
+pnChars     = "[\(pnBaseRange)_:0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040-]";
+pnPrefix    = "\(pnCharsBase)(?:(?:\(pnChars)|\\.)*\(pnChars))?";
+pnLocal     = "(?:\(pnCharsU)|[0-9])(?:(?:\(pnChars)|\\.)*(?:\(pnChars)))?";
+pname       = "(\(pnPrefix))?:(\(pnLocal))"; // NB this ?: is not like the rest
+
+pnameNS state =
+    notWhitespace state ~>
        \case of
-        Token iri: OK (State (state with { base = iri }));
+        Token t:
+            if strEnds? t ":" then
+                pfx = strLeft t ((strLength t) - 1);
+                if pfx =~ "^\(pnPrefix)$" then
+                    OK (Token pfx)
+                else
+                    Error "Malformed prefix \(t) at \(state.reader.location)"
+                fi
+            else
+                Error "Expected ':' at end of prefix before \(state.reader.location)"
+            fi
         esac;
-
-//!!! Ah, no -- we can't do this with only one char lookahead.
-// A prefix can have a . in it, but not as the final character.
-// Also, crazily, ":" appears to be permitted in a prefix!
-// (as in @prefix myprefix:: <http://example.com/>)
-// For now we'll just reject . and : in prefix string...
-pnPrefix state =
-    greedy pnCharsBase state ~>
-       \case of Token base:
-           greedy pnCharsNoColon state ~>
-               \case of Token rest:
-                OK (Token (base ^ rest));
-                esac;
-        esac;
-
+                   
 prefix state =
-    tokseq state [whitespace,
-                  pnPrefix,
-                  required ":", whitespace] ~>
+    tokseq state [ whitespace, pnameNS ] ~>
        \case of Token pname:
-            tokseq state [iriref, punctuation "."] ~>
+            tokseq state [whitespace, iriref, punctuation "."] ~>
                \case of Token iri:
                     OK (State (state with {
                         namespaces =
                             (h = copy (state.namespaces); h[pname] := iri; h)
                         }));
                 esac;
+        esac;
+        
+base state = 
+    tokseq state [whitespace, iriref, punctuation "."] ~>
+       \case of
+        Token iri: OK (State (state with { base = iri }));
         esac;
 
 directive state =
@@ -87,33 +85,31 @@ directive state =
         Token t: Error "Expected prefix or base, found '\(t)'";
         esac;
 
-prefixedNameLocal state =
-   \case of Token pname:
-        if pname in state.namespaces then
-            greedy pnCharsU state ~> //!!! not really right (for PN_LOCAL)
-               \case of Token local:
-                    OK (IRI (state.namespaces[pname] ^ local));
-                esac
+prefixExpanded state text =
+    case matchAll "^\(pname)$" M T text of
+    [M [whole, prefix, local]]:
+        if prefix in state.namespaces then
+            OK (IRI (state.namespaces[prefix] ^ local));
         else
-            Error "Unknown namespace prefix '\(pname)' at \(state.reader.location)";
+            Error "Unknown namespace prefix '\(prefix)' at \(state.reader.location)";
         fi;
+    _: Error "Malformed prefixed name \(text) at \(state.reader.location)";
     esac;
 
+// Splitting into prefix and local part can't be done with single
+// character lookahead any more (in "New Turtle"). So consume all
+// non-whitespace and then apply a big fat regex separately
 prefixedName state =
-    tokseq state [pnPrefix, required ":"] ~>
-        prefixedNameLocal state;
+    notWhitespace state ~>
+       \case of
+        Token t: prefixExpanded state t;
+        esac;
 
 aOrPrefixedName state =
-    greedy pnCharsBase state ~> //!!! not correct
-       \case of Token pname:
-            if state.reader.next == ":" then
-               (state.reader.discard ();
-                prefixedNameLocal state (Token pname));
-            elif pname == "a" and state.reader.isWhitespace then
-                OK rdfTypeIRI;
-            else
-                Error "Expected 'a' or prefix at \(state.reader.location)";
-            fi
+    notWhitespace state ~>
+       \case of
+        Token "a": OK rdfTypeIRI;
+        Token t: prefixExpanded state t;
         esac;
 
 blank state =

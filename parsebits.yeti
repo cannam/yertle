@@ -6,10 +6,22 @@ whitespace state =
     r.isWhitespace and not r.isEof loop r.discard ();
     if r.next == "#" then
         not r.isEol and not r.isEof loop r.discard ();
-        whitespace state;
+        whitespace state
     else
-        OK (Empty ());
+        OK (Empty ())
     fi);
+
+notWhitespace state =
+   (sub r escaped acc =
+        if r.isWhitespace then
+            OK (Token acc)
+        elif r.next == '#' and not escaped then
+            OK (Token acc)
+        else
+            escaped = (r.next == '\');
+            sub r escaped (acc ^ r.read ());
+        fi;
+    sub state.reader false "");
 
 chomp state = // read whitespace, discard, and return nothing
    (case whitespace state of OK _: (); esac);
@@ -66,5 +78,5 @@ tokseq state seq =
         esac;
     sub (Error "No token found at \(state.reader.location)") state seq);
 
-{ whitespace, chomp, required, greedy, ~>, noseq, tokseq }
+{ whitespace, notWhitespace, chomp, required, greedy, ~>, noseq, tokseq }
 
