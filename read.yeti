@@ -37,11 +37,11 @@ pnBaseRange = "A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037
 //!!! NB Yeti docs say it will optimise REs made from constant
 //strings: how should we take advantage of that?
 pnCharsBase = "[\(pnBaseRange)]";
-pnCharsU    = "[\(pnBaseRange)_:]";
-pnChars     = "[\(pnBaseRange)_:0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040-]";
+pnCharsU    = "[\(pnBaseRange)_]";
+pnChars     = "[\(pnBaseRange)_0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040-]";
 pnPrefix    = "\(pnCharsBase)(?:(?:\(pnChars)|\\.)*\(pnChars))?";
 bnode       = "(?:\(pnCharsU)|[0-9])(?:(?:\(pnChars)|\\.)*(?:\(pnChars)))?";
-pnLocal     = "(?:\(pnCharsU)|[0-9])(?:(?:\(pnChars)|\\.)*(?:\(pnChars)))?"; //!!! needs PLX
+pnLocal     = "(?:\(pnCharsU)|[0-9:])(?:(?:\(pnChars)|\\.|:)*(?:\(pnChars)|:))?"; //!!! needs PLX
 pname       = "(\(pnPrefix))?:(\(pnLocal))"; // NB this ?: is not like the rest
 
 pnameNS state =
@@ -97,9 +97,6 @@ prefixExpanded state text =
     _: Error "Malformed prefixed name \(text) at \(state.reader.location)";
     esac;
 
-// Splitting into prefix and local part can't be done with single
-// character lookahead any more (in "New Turtle"). So consume all
-// non-whitespace and then apply a big fat regex separately
 prefixedName state =
     notWhitespace state ~>
        \case of
