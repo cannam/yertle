@@ -246,6 +246,7 @@ objectList state =
                         OK (Nodes ((Node n)::nodes));
                     esac);
             else
+            println "objectList: returning OK (Nodes [Node \(n)])";
                 OK (Nodes [Node n])
             fi);
         esac
@@ -305,8 +306,8 @@ blankNodeTriples state =
             predicateObjectList state ~>
                \case of POList polist:
                     OK (Triples
-                        (map do po: { s = subj, p = po.p, o = po.o } done
-                             polist));
+                        (tt ++ (map do po: { s = subj, p = po.p, o = po.o } done
+                                polist)));
                 esac
             );
         esac;
