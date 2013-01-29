@@ -50,10 +50,10 @@ pnameNS state =
         Token t:
             if strEnds? t ":" then
                 pfx = strLeft t ((strLength t) - 1);
-                if pfx =~ "^\(pnPrefix)$" then
+                if pfx == "" or pfx =~ "^\(pnPrefix)$" then
                     OK (Token pfx)
                 else
-                    Error "Malformed prefix \(t) at \(state.reader.location)"
+                    Error "Malformed prefix '\(pfx)' at \(state.reader.location)"
                 fi
             else
                 Error "Expected ':' at end of prefix before \(state.reader.location)"
@@ -94,7 +94,7 @@ prefixExpanded state text =
         else
             Error "Unknown namespace prefix '\(prefix)' at \(state.reader.location)";
         fi;
-    _: Error "Malformed prefixed name \(text) at \(state.reader.location)";
+    _: Error "Malformed prefixed name '\(text)' at \(state.reader.location)";
     esac;
 
 prefixedName state =
@@ -129,7 +129,7 @@ blank state =
             if b =~ "^\(bnode)$" then
                 OK (blankNodeFor state b)
             else
-                Error "Malformed blank node label \(b) at \(state.reader.location)";
+                Error "Malformed blank node label '\(b)' at \(state.reader.location)";
             fi;
         esac;
 
@@ -214,14 +214,13 @@ subject state =
       _: iri state;
     esac ~> (OK . Node);
 
-blankNodePropertyList state =
-    Error "blankNodePropertyList not implemented at \(state.reader.location)";
+var blankNodePropertyList' state = OK (Blank (-1));
 
 nonLiteralObject state =
     case state.reader.next of
     "_": blank state;
     "(": collection state;
-    "[": blankNodePropertyList state;
+    "[": blankNodePropertyList' state;
       _: iri state;
     esac ~> (OK . Node);
 
@@ -278,7 +277,26 @@ predicateObjectList' acc state =
     );
 
 predicateObjectList state =
-   predicateObjectList' [] state;
+    predicateObjectList' [] state;
+
+blankNodePropertyList state =
+    punctuation "[" state ~>
+      \(predicateObjectList state ~>
+           \case of POList polist:      
+               (subj = Blank state.nextBnode; //!!! clean up, and see blankNodeFor above
+                state.nextBnode := state.nextBnode + 1; //!!!
+                if empty? polist then
+                    Error "At least one predicate expected at \(state.reader.location)"
+                else
+                    punctuation "]" state ~>
+                       \(OK (Triples
+                            (map do po: { s = subj, p = po.p, o = po.o } done
+                                 polist)));
+                fi);
+            esac;
+        );            
+
+blankNodePropertyList' := blankNodePropertyList;
 
 blankNodeTriples state = 
     blankNodePropertyList state ~>
