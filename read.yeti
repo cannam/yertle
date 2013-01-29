@@ -117,8 +117,7 @@ blankNodeFor state b =
 //needs to return both something-parsed and a new state, so we can't
 //do that here.
    (if not b in state.bnodeLabels then
-        state.bnodeLabels[b] := state.nextBnode;
-        state.nextBnode := state.nextBnode + 1;
+        state.bnodeLabels[b] := state.newBlankNodeId;
     fi;
     Blank state.bnodeLabels[b]);
 
@@ -134,7 +133,18 @@ blank state =
         esac;
 
 collection state =
-    Error "collection not implemented at \(state.reader.location)";
+//!!! Ah, this won't work -- object doesn't return just the node, it can return a pile of triples
+    Error "collection not implemented yet";
+/*
+   (sub acc state =
+       (chomp state;
+        if state.reader.next == ")" then
+            acc
+        else
+            object state ~> do obj: sub obj::acc state done
+        fi);
+  */      
+           
 
 booleanType =
     "\(xsdPrefix)boolean";
@@ -312,8 +322,7 @@ blankNodePropertyList state =
     punctuation "[" state ~>
       \(predicateObjectList state ~>
            \case of POList polist:
-               (subj = Blank state.nextBnode; //!!! clean up, and see blankNodeFor above
-                state.nextBnode := state.nextBnode + 1; //!!!
+               (subj = Blank state.newBlankNodeId;
                 punctuation "]" state ~>
                    \(OK (Triples (flattenAndAddSubject state subj polist)))
                 );
@@ -391,14 +400,20 @@ parse' doc currentTriples =
         esac;
     esac;
 
-parse reader =
-    parse' (document {
+newState reader =
+   (var nextBnode = 0;
+    {
         reader,
         base = "",
         namespaces = [:],
         bnodeLabels = [:],
-        var nextBnode = 0, //!!! should be global within store
-    }) [];
+        get newBlankNodeId () =
+           (nextBnode := nextBnode + 1;
+            nextBnode);
+    });
+
+parse reader =
+    parse' (document (newState reader)) [];
 
 parseHandle handle = 
     parse (char.reader handle);
