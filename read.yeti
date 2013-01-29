@@ -291,32 +291,28 @@ blankNodePropertyList state =
     punctuation "[" state ~>
       \(predicateObjectList state ~>
            \case of POList polist:
-               (node = Blank state.newBlankNodeId;
-                emitWithSubject state node polist ~>
+               (bnode = Blank state.newBlankNodeId;
+                emitWithSubject state bnode polist ~>
                    \(punctuation "]" state) ~>
-                       \(OK (Node node)));
+                       \(OK (Node bnode)));
             esac;
         );
 
 blankNodePropertyList' := blankNodePropertyList;
 
+emitNode state node =
+    case node of Node subj:
+        predicateObjectList state ~>
+           \case of POList polist:
+                emitWithSubject state subj polist;
+            esac;
+    esac;
+
 blankNodeTriples state = 
-    blankNodePropertyList state ~>
-       \case of Node subj:
-            predicateObjectList state ~>
-               \case of POList polist:
-                    emitWithSubject state subj polist;
-                esac;
-        esac;
+    blankNodePropertyList state ~> emitNode state;
 
 subjectTriples state =
-    subject state ~>
-       \case of Node subj:
-            predicateObjectList state ~>
-               \case of POList polist:
-                    emitWithSubject state subj polist;
-                esac;
-        esac;
+    subject state ~> emitNode state;
 
 triples state = 
     case state.reader.next of
