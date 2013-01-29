@@ -65,17 +65,17 @@ prefix state =
        \case of Token pname:
             tokseq state [whitespace, iriref, punctuation "."] ~>
                \case of Token iri:
-                    OK (State (state with {
-                        namespaces =
-                            (h = copy (state.namespaces); h[pname] := iri; h)
-                        }));
+                    state.namespaces[pname] := iri;
+                    OK (Empty ());
                 esac;
         esac;
         
 base state = 
     tokseq state [whitespace, iriref, punctuation "."] ~>
        \case of
-        Token iri: OK (State (state with { base = iri }));
+        Token iri: 
+            state.base := iri;
+            OK (Empty ());
         esac;
 
 directive state =
@@ -111,11 +111,6 @@ aOrPrefixedName state =
         esac;
 
 blankNodeFor state b =
-//!!! oops -- this doesn't square with the way other functions work --
-//elsewhere we return either Token (etc) or State, and update the
-//state back in the dispatcher if State is returned. But this one
-//needs to return both something-parsed and a new state, so we can't
-//do that here.
    (if not b in state.bnodeLabels then
         state.bnodeLabels[b] := state.newBlankNodeId;
     fi;
@@ -229,11 +224,11 @@ var blankNodePropertyList' state =
 
 nonLiteralObject state =
     case state.reader.next of
-    "_": blank state ~> (OK . Node);
+    "_": blank state;
     "(": collection state;
     "[": blankNodePropertyList' state;
-      _: iri state ~> (OK . Node);
-    esac;
+      _: iri state;
+    esac ~> (OK . Node);
 
 // [12] object ::= iri | blank | blankNodePropertyList | literal
 object state =
@@ -262,28 +257,6 @@ objectList state =
         done
     );
 
-// Take a mixture of nodes and triples (read from the object position
-// in a triple -- we expect a node there, but in the case of nested
-// blank nodes or collections we might get a whole set of triples) and
-// convert the nodes to predicate-object pairs by inserting the verb
-// into each. Triples lists we preserve unchanged, but we insert an
-// additional triple associating the verb with the head triple in the
-// list.
-nodesToPOs acc verb nodes = //!!! don't like this name
-    case nodes of
-    n::rest:
-        case n of
-        Node node:
-            nodesToPOs (acc ++ [PO { p = verb, o = node }]) 
-                verb rest;
-        Triples tt:
-            nodesToPOs (acc ++ [PO { p = verb, o = (head tt).s },
-                                Triples tt])
-                verb rest;
-        esac;
-    _: acc;
-    esac;
-
 // [7] predicateObjectList ::= verb objectList (';' predicateObjectList?)*
 predicateObjectList' acc state =
    (chomp state;
@@ -291,7 +264,7 @@ predicateObjectList' acc state =
        \case of IRI iri:
             objectList state ~>
                \case of Nodes nodes:
-                    OK (POList (nodesToPOs acc iri nodes));
+                    OK (POList (acc ++ map do n: { p = IRI iri, o = n } done nodes));
                 esac;
         esac ~>
            \case of POList lst:
@@ -308,38 +281,32 @@ predicateObjectList' acc state =
 predicateObjectList state =
     predicateObjectList' [] state;
 
-flattenAndAddSubject state subject polist = //!!! don't like this name
-   (concat
-       (map do entry:
-            case entry of 
-            PO po: [ { s = subject, p = po.p, o = po.o } ];
-            Triples tt: tt;
-            esac
-            done polist)
-    );
+emitWithSubject state subject polist =
+   (for polist do po:
+        push state.pendingTriples { s = subject, p = po.p, o = po.o }
+    done;
+    OK ());
 
 blankNodePropertyList state =
     punctuation "[" state ~>
       \(predicateObjectList state ~>
            \case of POList polist:
-               (subj = Blank state.newBlankNodeId;
-                punctuation "]" state ~>
-                   \(OK (Triples (flattenAndAddSubject state subj polist)))
-                );
+               (node = Blank state.newBlankNodeId;
+                emitWithSubject state node polist ~>
+                   \(punctuation "]" state) ~>
+                       \(OK (Node node)));
             esac;
-        );            
+        );
 
 blankNodePropertyList' := blankNodePropertyList;
 
 blankNodeTriples state = 
     blankNodePropertyList state ~>
-       \case of Triples tt:
-           (subj = (head tt).s;
+       \case of Node subj:
             predicateObjectList state ~>
                \case of POList polist:
-                    OK (Triples (tt ++ (flattenAndAddSubject state subj polist)))
-                esac
-            );
+                    emitWithSubject state subj polist;
+                esac;
         esac;
 
 subjectTriples state =
@@ -347,7 +314,7 @@ subjectTriples state =
        \case of Node subj:
             predicateObjectList state ~>
                \case of POList polist:
-                    OK (Triples (flattenAndAddSubject state subj polist))
+                    emitWithSubject state subj polist;
                 esac;
         esac;
 
@@ -362,23 +329,17 @@ statement state =
     if state.reader.isEof then End ()
     else
         case state.reader.next of
-        "@":
-            directive state;
-          _:
-            triples state ~>
-               \case of
-                Triples tt: punctuation "." state ~> \(OK (Triples tt));
-                esac;
+        "@": directive state;
+          _: triples state ~> \(punctuation "." state);
         esac;
     fi);
 
 document state =
    (result = statement state;
+    tt = map Triple state.pendingTriples;
+    clearArray state.pendingTriples;
     case result of
-    OK (State newstate):
-        document newstate;
-    OK (Triples tt):
-        (Triples tt) :. \(document state);
+    OK (Empty ()): (Triples tt) :. \(document state);
     Error e: [Error e];
     End _: [];
     esac);
@@ -388,7 +349,7 @@ document state =
 parse' doc currentTriples =
     case currentTriples of
     t::tt:
-        (Triple t) :. \(parse' doc tt);
+        t :. \(parse' doc tt);
     _:
         case doc of
         element::ee:
@@ -404,7 +365,8 @@ newState reader =
    (var nextBnode = 0;
     {
         reader,
-        base = "",
+        var base = "",
+        pendingTriples = array [],
         namespaces = [:],
         bnodeLabels = [:],
         get newBlankNodeId () =
