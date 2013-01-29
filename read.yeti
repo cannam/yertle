@@ -214,15 +214,16 @@ subject state =
       _: iri state;
     esac ~> (OK . Node);
 
-var blankNodePropertyList' state = OK (Blank (-1));
+var blankNodePropertyList' state = 
+    Error "blankNodePropertyList' should have been reassigned";
 
 nonLiteralObject state =
     case state.reader.next of
-    "_": blank state;
+    "_": blank state ~> (OK . Node);
     "(": collection state;
     "[": blankNodePropertyList' state;
-      _: iri state;
-    esac ~> (OK . Node);
+      _: iri state ~> (OK . Node);
+    esac;
 
 // [12] object ::= iri | blank | blankNodePropertyList | literal
 object state =
@@ -237,33 +238,50 @@ object state =
 objectList state =
    (chomp state;
     object state ~>
-       \case of Node n:
-           (chomp state;
+        do obj:
+            chomp state;
             if state.reader.next == "," then
                (state.reader.discard ();
                 objectList state ~>
                    \case of Nodes nodes:
-                        OK (Nodes ((Node n)::nodes));
+                        OK (Nodes (obj::nodes));
                     esac);
             else
-            println "objectList: returning OK (Nodes [Node \(n)])";
-                OK (Nodes [Node n])
-            fi);
-        esac
+                OK (Nodes [obj]);
+            fi;
+        done
     );
 
+// Take a mixture of nodes and triples (read from the object position
+// in a triple -- we expect a node there, but in the case of nested
+// blank nodes or collections we might get a whole set of triples) and
+// convert the nodes to predicate-object pairs by inserting the verb
+// into each. Triples lists we preserve unchanged, but we insert an
+// additional triple associating the verb with the head triple in the
+// list.
+nodesToPOs acc verb nodes = //!!! don't like this name
+    case nodes of
+    n::rest:
+        case n of
+        Node node:
+            nodesToPOs (acc ++ [PO { p = verb, o = node }]) 
+                verb rest;
+        Triples tt:
+            nodesToPOs (acc ++ [PO { p = verb, o = (head tt).s },
+                                Triples tt])
+                verb rest;
+        esac;
+    _: acc;
+    esac;
+
 // [7] predicateObjectList ::= verb objectList (';' predicateObjectList?)*
-//!!! Hm, this is not tail-recursive I think? and I don't like it
 predicateObjectList' acc state =
    (chomp state;
     verb state ~>
        \case of IRI iri:
             objectList state ~>
                \case of Nodes nodes:
-                    OK (POList
-                        (acc ++
-                         (map \case of Node node: { p = iri, o = node } esac
-                              nodes)));
+                    OK (POList (nodesToPOs acc iri nodes));
                 esac;
         esac ~>
            \case of POList lst:
@@ -280,20 +298,25 @@ predicateObjectList' acc state =
 predicateObjectList state =
     predicateObjectList' [] state;
 
+flattenAndAddSubject state subject polist = //!!! don't like this name
+   (concat
+       (map do entry:
+            case entry of 
+            PO po: [ { s = subject, p = po.p, o = po.o } ];
+            Triples tt: tt;
+            esac
+            done polist)
+    );
+
 blankNodePropertyList state =
     punctuation "[" state ~>
       \(predicateObjectList state ~>
-           \case of POList polist:      
+           \case of POList polist:
                (subj = Blank state.nextBnode; //!!! clean up, and see blankNodeFor above
                 state.nextBnode := state.nextBnode + 1; //!!!
-                if empty? polist then
-                    Error "At least one predicate expected at \(state.reader.location)"
-                else
-                    punctuation "]" state ~>
-                       \(OK (Triples
-                            (map do po: { s = subj, p = po.p, o = po.o } done
-                                 polist)));
-                fi);
+                punctuation "]" state ~>
+                   \(OK (Triples (flattenAndAddSubject state subj polist)))
+                );
             esac;
         );            
 
@@ -305,9 +328,7 @@ blankNodeTriples state =
            (subj = (head tt).s;
             predicateObjectList state ~>
                \case of POList polist:
-                    OK (Triples
-                        (tt ++ (map do po: { s = subj, p = po.p, o = po.o } done
-                                polist)));
+                    OK (Triples (tt ++ (flattenAndAddSubject state subj polist)))
                 esac
             );
         esac;
@@ -317,13 +338,7 @@ subjectTriples state =
        \case of Node subj:
             predicateObjectList state ~>
                \case of POList polist:
-                    if empty? polist then
-                        Error "At least one predicate expected at \(state.reader.location)"
-                    else
-                        OK (Triples
-                            (map do po: { s = subj, p = po.p, o = po.o } done
-                                 polist))
-                    fi;
+                    OK (Triples (flattenAndAddSubject state subj polist))
                 esac;
         esac;
 
@@ -353,13 +368,13 @@ document state =
     case result of
     OK (State newstate):
         document newstate;
-    OK (Triples t):
-        (Triples t) :. \(document state);
+    OK (Triples tt):
+        (Triples tt) :. \(document state);
     Error e: [Error e];
     End _: [];
     esac);
 
-// Flatten out [OK Triples [...], OK Triples [...], Error ...]
+// Flatten out [Triples [...], Triples [...], Error ...]
 // into [Triple ..., Triple ..., Error ...]
 parse' doc currentTriples =
     case currentTriples of
