@@ -144,6 +144,7 @@ blank state =
 var object' state =
     Error "object' should have been reassigned";
 
+// [15] collection ::= '(' object* ')'
 //!!! This could be simpler
 collection state =
    (readObjects acc state =
@@ -180,6 +181,7 @@ collection state =
 booleanType =
     "\(xsdPrefix)boolean";
 
+// [133s] BooleanLiteral ::= 'true' | 'false'
 booleanLiteral state =
     greedy "[a-z]" state ~>
        \case of 
@@ -215,6 +217,8 @@ rdfLiteral state =
             esac;
     fi);
 
+// Currently using Java's number parser rather than Turtle rules (I
+// wonder what the difference is)
 numericLiteral state =
     try
         greedy "[0-9eE+-]" state ~> 
@@ -309,30 +313,35 @@ objectList state =
         done
     );
 
-// [7] predicateObjectList ::= verb objectList (';' predicateObjectList?)*
+// [7] predicateObjectList ::= 	verb objectList (';' (verb objectList)?)*
+// NB we permit an empty list here; caller must reject if its rule
+// demands predicateObjectList rather than predicateObjectList?
 predicateObjectList' acc state =
-   (chomp state;
-    verb state ~>
-       \case of IRI iri:
-            objectList state ~>
-               \case of Nodes nodes:
-                    OK (POList (acc ++ map do n: { p = IRI iri, o = n } done nodes));
+    if (chomp state; state.reader.next == ".") then
+        OK (POList acc) // empty list, or ending with ; .
+    else
+        verb state ~>
+           \case of IRI iri:
+                objectList state ~>
+                   \case of Nodes nodes:
+                        OK (POList (acc ++ map do n: { p = IRI iri, o = n } done nodes));
+                    esac;
+            esac ~>
+               \case of POList lst:
+                    if (chomp state; state.reader.next == ";") then
+                        state.reader.discard ();
+                        predicateObjectList' lst state
+                    else
+                        OK (POList lst)
+                    fi;
                 esac;
-        esac ~>
-           \case of POList lst:
-               (chomp state;
-                if state.reader.next == ";" then
-                   (state.reader.discard ();
-                    predicateObjectList' lst state)
-                else
-                    OK (POList lst)
-                fi);
-            esac;
-    );
+    fi;
 
 predicateObjectList state =
     predicateObjectList' [] state;
 
+// blankNodePropertyList ::= '[' predicateObjectList ']'
+//!!! this currently allows an empty list, not permitted by spec -- check on ANON production though too
 blankNodePropertyList state =
     punctuation "[" state ~>
       \(predicateObjectList state ~>
@@ -346,19 +355,30 @@ blankNodePropertyList state =
 
 blankNodePropertyList' := blankNodePropertyList;
 
-emitNode state node =
-    case node of Node subj:
-        predicateObjectList state ~>
-           \case of POList polist:
-                emitWithSubject state subj polist;
-            esac;
-    esac;
-
+// [6] triples ::= subject predicateObjectList | blankNodePropertyList predicateObjectList?
+// Handles the blankNodePropertyList part of that alternation
 blankNodeTriples state = 
-    blankNodePropertyList state ~> emitNode state;
+    blankNodePropertyList state ~> 
+       \case of Node subj:
+            predicateObjectList state ~>
+               \case of POList polist:
+                    emitWithSubject state subj polist;
+                esac;
+        esac;
 
+// [6] triples ::= subject predicateObjectList | blankNodePropertyList predicateObjectList?
+// Handles the subject part of that alternation
 subjectTriples state =
-    subject state ~> emitNode state;
+    subject state ~> 
+       \case of Node subj:
+            predicateObjectList state ~>
+               \case of
+                POList []:
+                    Error "Predicate required after subject at \(state.reader.location)";
+                POList polist:
+                    emitWithSubject state subj polist;
+                esac;
+        esac;
 
 triples state = 
     case state.reader.next of
@@ -366,6 +386,7 @@ triples state =
       _: subjectTriples state;
     esac;
 
+// [2] statement ::= directive | triples '.'
 statement state =
    (chomp state;
     if state.reader.isEof then End ()
