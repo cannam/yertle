@@ -5,8 +5,12 @@ char = load char;
 
 load parsebits;
 
-rdfTypeIRI = IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
-xsdPrefix = IRI "http://www.w3.org/2001/XMLSchema#";
+xsdPrefix = "http://www.w3.org/2001/XMLSchema#";
+rdfPrefix = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
+rdfTypeIRI  = IRI "\(rdfPrefix)type";
+rdfFirstIRI = IRI "\(rdfPrefix)first";
+rdfRestIRI  = IRI "\(rdfPrefix)rest";
+rdfNilIRI   = IRI "\(rdfPrefix)nil";
 
 newLiteral string = { value = string, type = "", language = "" };
 
@@ -43,6 +47,13 @@ pnPrefix    = "\(pnCharsBase)(?:(?:\(pnChars)|\\.)*\(pnChars))?";
 bnode       = "(?:\(pnCharsU)|[0-9])(?:(?:\(pnChars)|\\.)*(?:\(pnChars)))?";
 pnLocal     = "(?:\(pnCharsU)|[0-9:])(?:(?:\(pnChars)|\\.|:)*(?:\(pnChars)|:))?"; //!!! needs PLX
 pname       = "(\(pnPrefix))?:(\(pnLocal))"; // NB this ?: is not like the rest
+
+emit state triple =
+    push state.pendingTriples triple;
+
+emitWithSubject state subject polist =
+   (for polist do po: emit state { s = subject, p = po.p, o = po.o } done;
+    OK ());
 
 pnameNS state =
     notWhitespace state ~>
@@ -110,11 +121,14 @@ aOrPrefixedName state =
         Token t: prefixExpanded state t;
         esac;
 
+newBlankNode state =
+    Blank state.newBlankNodeId;
+
 blankNodeFor state b =
    (if not b in state.bnodeLabels then
-        state.bnodeLabels[b] := state.newBlankNodeId;
+        state.bnodeLabels[b] := newBlankNode state;
     fi;
-    Blank state.bnodeLabels[b]);
+    state.bnodeLabels[b]);
 
 blank state =
     tokseq state [required '_', required ':', notWhitespace] ~>
@@ -127,19 +141,41 @@ blank state =
             fi;
         esac;
 
+var object' state =
+    Error "object' should have been reassigned";
+
+//!!! This could be simpler
 collection state =
-//!!! Ah, this won't work -- object doesn't return just the node, it can return a pile of triples
-    Error "collection not implemented yet";
-/*
-   (sub acc state =
+   (readObjects acc state =
        (chomp state;
         if state.reader.next == ")" then
-            acc
+            OK acc
         else
-            object state ~> do obj: sub obj::acc state done
+            object' state ~> do obj: readObjects (acc ++ [obj]) state done
         fi);
-  */      
-           
+    addObjects node state objects =
+        case objects of
+        obj::rest:
+           (emit state { s = node, p = rdfFirstIRI, o = obj };
+            if empty? rest then
+                emit state { s = node, p = rdfRestIRI, o = rdfNilIRI };
+            else
+                nextNode = newBlankNode state;
+                emit state { s = node, p = rdfRestIRI, o = nextNode };
+                addObjects nextNode state rest;
+            fi);
+        _: ();
+        esac;
+    required "(" state ~>
+       \(readObjects [] state ~>
+            do objects:
+            case objects of
+            []: required ")" state ~> \(OK rdfNilIRI);
+             _:
+               (headnode = newBlankNode state;
+                addObjects headnode state objects;
+                required ")" state ~> \(OK headnode));
+            esac done));
 
 booleanType =
     "\(xsdPrefix)boolean";
@@ -238,6 +274,8 @@ object state =
         literal state ~> (OK . Node)
     fi;
 
+object' := object;
+
 // [8] objectList ::= object (',' object)*
 //!!! not tail-recursive
 objectList state =
@@ -281,17 +319,11 @@ predicateObjectList' acc state =
 predicateObjectList state =
     predicateObjectList' [] state;
 
-emitWithSubject state subject polist =
-   (for polist do po:
-        push state.pendingTriples { s = subject, p = po.p, o = po.o }
-    done;
-    OK ());
-
 blankNodePropertyList state =
     punctuation "[" state ~>
       \(predicateObjectList state ~>
            \case of POList polist:
-               (bnode = Blank state.newBlankNodeId;
+               (bnode = newBlankNode state;
                 emitWithSubject state bnode polist ~>
                    \(punctuation "]" state) ~>
                        \(OK (Node bnode)));
