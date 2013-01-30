@@ -55,8 +55,21 @@ emitWithSubject state subject polist =
    (for polist do po: emit state { s = subject, p = po.p, o = po.o } done;
     OK ());
 
+pnameCandidate state =
+   (sub r escaped acc =
+        if r.isWhitespace then
+            OK (Token acc)
+        elif (r.next == '#' or r.next == "." or r.next == ";" or r.next == ",") 
+             and not escaped then
+            OK (Token acc)
+        else
+            escaped = (r.next == '\');
+            sub r escaped (acc ^ r.read ());
+        fi;
+    sub state.reader false "");
+
 pnameNS state =
-    notWhitespace state ~>
+    pnameCandidate state ~>
        \case of
         Token t:
             if strEnds? t ":" then
@@ -109,13 +122,13 @@ prefixExpanded state text =
     esac;
 
 prefixedName state =
-    notWhitespace state ~>
+    pnameCandidate state ~>
        \case of
         Token t: prefixExpanded state t;
         esac;
 
 aOrPrefixedName state =
-    notWhitespace state ~>
+    pnameCandidate state ~>
        \case of
         Token "a": OK rdfTypeIRI;
         Token t: prefixExpanded state t;
@@ -131,7 +144,7 @@ blankNodeFor state b =
     state.bnodeLabels[b]);
 
 blank state =
-    tokseq state [required '_', required ':', notWhitespace] ~>
+    tokseq state [required '_', required ':', pnameCandidate] ~>
        \case of
         Token b:
             if b =~ "^\(bnode)$" then
@@ -193,35 +206,74 @@ booleanLiteral state =
 var datatype' state =
     Error "datatype' should have been reassigned";
 
-//!!! doesn't handle multi-line literals (''' or """), escapes, \u \U
-rdfLiteral state =
-   (quote = state.reader.next;
-    if quote != '"' and quote != "'" then //"
+openQuote state =
+   (r = state.reader;
+    quote = r.next;
+    if quote != "\"" and quote != "'" then
         Error "Expected quotation mark at \(state.reader.location)";
     else
-        state.reader.discard ();
-        tokseq state [ greedy "[^\\x5c\\x0a\\x0d\(quote)]", required quote ] ~>
-           \case of
-            Token t:
-                case state.reader.next of
-                "@": langtag state ~>
-                       \case of Token lt:
-                            OK (Literal (newLiteral t with { language = lt }));
-                        esac;
-                "^": datatype' state ~>
-                       \case of IRI di:
-                            OK (Literal (newLiteral t with { type = di }));
-                        esac;
-                  _: OK (Literal (newLiteral t));
-                esac;
-            esac;
+        if (r.discard (); r.next == quote) then
+            if (r.discard (); r.next == quote) then
+                r.discard ();
+                OK (Long quote); // three quotes: long string opening
+            else
+                OK (Empty ()); // two quotes: empty string
+            fi
+        else
+            OK (Short quote); // one quote: short string opening
+        fi
     fi);
+
+longString state quote =
+   (sub r quote acc n =
+        if r.next == quote then
+            if n == 2 then // this is the third quote in a row, ends the string
+                r.discard ();
+                OK (Token (strLeft acc (strLength acc - 2)));
+            else
+                sub r quote (acc ^ r.read ()) (n + 1)
+            fi
+        elif r.isEof then
+            Error "End of file reached in long string"
+        else
+            sub r quote (acc ^ r.read ()) 0
+        fi;
+    sub state.reader quote "" 0);
+
+stringBody state =
+    openQuote state ~>
+       \case of
+        Empty ():
+            OK (Token "");
+        Short q:
+            tokseq state [ greedy "[^\\x5c\\x0a\\x0d\(q)]", required q ];
+        Long q:
+            longString state q;
+        esac;
+
+//!!! still does not handle escapes, \u etc
+rdfLiteral state =
+    stringBody state ~>
+       \case of
+        Token t:
+            case state.reader.next of
+            "@": langtag state ~>
+                   \case of Token lt:
+                        OK (Literal (newLiteral t with { language = lt }));
+                    esac;
+            "^": datatype' state ~>
+                   \case of IRI di:
+                        OK (Literal (newLiteral t with { type = di }));
+                    esac;
+              _: OK (Literal (newLiteral t));
+            esac;
+        esac;
 
 // Currently using Java's number parser rather than Turtle rules (I
 // wonder what the difference is)
 numericLiteral state =
     try
-        greedy "[0-9eE+-]" state ~> 
+        greedy '[0-9eE+\.-]' state ~> 
            \case of
             Token n:
                 type = if n =~ "[Ee]" then "\(xsdPrefix)double"
@@ -300,8 +352,7 @@ objectList state =
    (chomp state;
     object state ~>
         do obj:
-            chomp state;
-            if state.reader.next == "," then
+            if (chomp state; state.reader.next == ",") then
                (state.reader.discard ();
                 objectList state ~>
                    \case of Nodes nodes:

@@ -11,18 +11,6 @@ whitespace state =
         OK (Empty ())
     fi);
 
-notWhitespace state =
-   (sub r escaped acc =
-        if r.isWhitespace then
-            OK (Token acc)
-        elif r.next == '#' and not escaped then
-            OK (Token acc)
-        else
-            escaped = (r.next == '\');
-            sub r escaped (acc ^ r.read ());
-        fi;
-    sub state.reader false "");
-
 chomp state = // read whitespace, discard, and return nothing
    (case whitespace state of OK _: (); esac);
 
@@ -78,5 +66,5 @@ tokseq state seq =
         esac;
     sub (Error "No token found at \(state.reader.location)") state seq);
 
-{ whitespace, notWhitespace, chomp, required, greedy, ~>, noseq, tokseq }
+{ whitespace, chomp, required, greedy, ~>, noseq, tokseq }
 
