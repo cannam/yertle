@@ -188,8 +188,10 @@ booleanLiteral state =
         _: Error "Expected 'true' or 'false' at \(state.reader.location)";
         esac;
 
-//!!! doesn't handle multi-line literals (''' or """), escapes, \u \U,
-//languages, datatype etc
+var datatype' state =
+    Error "datatype' should have been reassigned";
+
+//!!! doesn't handle multi-line literals (''' or """), escapes, \u \U
 rdfLiteral state =
    (quote = state.reader.next;
     if quote != '"' and quote != "'" then //"
@@ -199,9 +201,16 @@ rdfLiteral state =
         tokseq state [ greedy "[^\\x5c\\x0a\\x0d\(quote)]", required quote ] ~>
            \case of
             Token t:
-                case langtag state of
-                OK (Token lt): OK (Literal (newLiteral t with { language = lt }));
-                Error _: OK (Literal (newLiteral t));
+                case state.reader.next of
+                "@": langtag state ~>
+                       \case of Token lt:
+                            OK (Literal (newLiteral t with { language = lt }));
+                        esac;
+                "^": datatype' state ~>
+                       \case of IRI di:
+                            OK (Literal (newLiteral t with { type = di }));
+                        esac;
+                  _: OK (Literal (newLiteral t));
                 esac;
             esac;
     fi);
@@ -254,6 +263,11 @@ subject state =
     "(": collection state;
       _: iri state;
     esac ~> (OK . Node);
+
+datatype state =
+    required "^" state ~> \(required "^" state) ~> \(iri state);
+
+datatype' := datatype;
 
 var blankNodePropertyList' state = 
     Error "blankNodePropertyList' should have been reassigned";
