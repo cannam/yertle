@@ -500,7 +500,7 @@ parseHandle handle =
 parseFile filename = 
     parse (char.reader (openInFile filename "UTF-8")); // Turtle is always utf8
 
-//!!! load to new store. loading into an existing store depends on proper handling of blank nodes
+//!!! load to new store. loading into an existing store depends on proper global handling of blank nodes, which is still pending
 loadFile filename = 
    (st = store.newStore ();
     fold
