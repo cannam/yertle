@@ -155,6 +155,8 @@ blank state =
             fi;
         esac;
 
+//!!! cyclical dependency
+// object -> nonLiteralObject -> collection -> object
 var object' state =
     Error "object' should have been reassigned";
 
@@ -192,6 +194,33 @@ collection state =
                 required ")" state ~> \(OK headnode));
             esac done));
 
+// [135s] iri ::= IRIREF | PrefixedName
+iri state =
+    case state.reader.next of
+    "<": iriref state ~> \case of Token t: OK (IRI t); esac;
+      _: prefixedName state;
+    esac;
+
+// [9] verb ::= predicate | 'a'
+// where
+// [11] predicate ::= iri
+verb state =
+    case state.reader.next of
+    "<": iri state;
+      _: aOrPrefixedName state;
+    esac;
+
+// [10] subject ::= iri | blank
+subject state =
+    case state.reader.next of
+    "_": blank state;
+    "(": collection state;
+      _: iri state;
+    esac ~> (OK . Node);
+
+datatype state =
+    required "^" state ~> \(required "^" state) ~> \(iri state);
+
 booleanType =
     "\(xsdPrefix)boolean";
 
@@ -203,9 +232,6 @@ booleanLiteral state =
         Token "false": OK (Literal (newLiteral "false" with { type = booleanType }));
         _: Error "Expected 'true' or 'false' at \(state.reader.location)";
         esac;
-
-var datatype' state =
-    Error "datatype' should have been reassigned";
 
 openQuote state =
    (r = state.reader;
@@ -262,7 +288,7 @@ rdfLiteral state =
                    \case of Token lt:
                         OK (Literal (newLiteral t with { language = lt }));
                     esac;
-            "^": datatype' state ~>
+            "^": datatype state ~>
                    \case of IRI di:
                         OK (Literal (newLiteral t with { type = di }));
                     esac;
@@ -296,35 +322,6 @@ literal state =
     "f": booleanLiteral state;
       _: numericLiteral state;
     esac;
-
-// [135s] iri ::= IRIREF | PrefixedName
-iri state =
-    case state.reader.next of
-    "<": iriref state ~> \case of Token t: OK (IRI t); esac;
-      _: prefixedName state;
-    esac;
-
-// [9] verb ::= predicate | 'a'
-// where
-// [11] predicate ::= iri
-verb state =
-    case state.reader.next of
-    "<": iri state;
-      _: aOrPrefixedName state;
-    esac;
-
-// [10] subject ::= iri | blank
-subject state =
-    case state.reader.next of
-    "_": blank state;
-    "(": collection state;
-      _: iri state;
-    esac ~> (OK . Node);
-
-datatype state =
-    required "^" state ~> \(required "^" state) ~> \(iri state);
-
-datatype' := datatype;
 
 var blankNodePropertyList' state = 
     Error "blankNodePropertyList' should have been reassigned";
