@@ -3,7 +3,7 @@ module store;
 
 index = load index;
 
-typedef statement = {
+typedef triple = {
     s is URI string | Blank number,
     p is URI string,
     o is URI string | Blank number | Literal { value is string, type is string },
@@ -27,20 +27,20 @@ newStore () = {
     ];
 };
 
-add st stmt is store -> statement -> boolean =
-    all id (map do ix: index.add ix stmt done st.indexes);
+add st t is store -> triple -> boolean =
+    all id (map do ix: index.add ix t done st.indexes);
 
-remove st stmt is store -> statement -> boolean = 
-    all id (map do ix: index.remove ix stmt done st.indexes);
+remove st t is store -> triple -> boolean = 
+    all id (map do ix: index.remove ix t done st.indexes);
 
 enumerate st is store -> list<'a> =
     index.enumerate (head st.indexes);
 
-contains st stmt is store -> statement -> boolean = 
-    // Doesn't matter which index we use to look up a complete statement
-    index.contains (head st.indexes) stmt;
+contains st t is store -> triple -> boolean = 
+    // Doesn't matter which index we use to look up a complete triple
+    index.contains (head st.indexes) t;
 
-match st pat is store -> pattern -> list<statement> =
+match st pat is store -> pattern -> list<triple> =
     index.match (index.chooseIndex st.indexes pat) pat;
 
 { newStore, add, remove, enumerate, contains, match }
