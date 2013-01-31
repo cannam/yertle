@@ -1,5 +1,5 @@
 
-module index;
+module yertle.index;
 
 typedef indextree = hash<'a, Sub 'b | Entry 'c>;
 

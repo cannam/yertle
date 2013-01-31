@@ -3,7 +3,7 @@ module test.test_store;
 
 { compare, compareUnordered } = load test.test;
 
-{ newStore, add, remove, enumerate, contains, match } = load store;
+{ newStore, add, remove, enumerate, contains, match } = load yertle.store;
 
 triple a b c = { s = URI a, p = URI b, o = URI c };
 

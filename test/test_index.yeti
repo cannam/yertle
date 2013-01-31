@@ -3,7 +3,7 @@ module test.test_index;
 
 { compare, compareUnordered } = load test.test;
 
-{ add, remove, enumerate, contains, match, chooseIndex } = load index;
+{ add, remove, enumerate, contains, match, chooseIndex } = load yertle.index;
 
 newIndex type = {
     order =

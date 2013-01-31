@@ -1,7 +1,7 @@
 
-module store;
+module yertle.store;
 
-index = load index;
+index = load yertle.index;
 
 typedef triple = {
     s is URI string | Blank number,

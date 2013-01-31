@@ -1,10 +1,10 @@
 
-module read;
+module yertle.read;
 
-char = load char;
-store = load store;
+char = load yertle.char;
+store = load yertle.store;
 
-load parsebits;
+load yertle.parsebits;
 
 xsdPrefix = "http://www.w3.org/2001/XMLSchema#";
 rdfPrefix = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
