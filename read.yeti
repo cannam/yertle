@@ -2,6 +2,7 @@
 module read;
 
 char = load char;
+store = load store;
 
 load parsebits;
 
@@ -458,18 +459,18 @@ document state =
     End _: [];
     esac);
 
-// Flatten out [Triples [...], Triples [...], Error ...]
+// Flatten out [Triples [Triple, ...], Triples [Triple, ...], Error ...]
 // into [Triple ..., Triple ..., Error ...]
-parse' doc currentTriples =
+flattened doc currentTriples =
     case currentTriples of
     t::tt:
-        t :. \(parse' doc tt);
+        t :. \(flattened doc tt);
     _:
         case doc of
         element::ee:
             case element of
             Error e: [Error e];
-            Triples chunk: parse' ee chunk;
+            Triples chunk: flattened ee chunk;
             esac;
         _: [];
         esac;
@@ -489,7 +490,7 @@ newState reader =
     });
 
 parse reader =
-    parse' (document (newState reader)) [];
+    flattened (document (newState reader)) [];
 
 parseHandle handle = 
     parse (char.reader handle);
@@ -497,4 +498,17 @@ parseHandle handle =
 parseFile filename = 
     parse (char.reader (openInFile filename "UTF-8")); // Turtle is always utf8
 
-{ parseHandle, parseFile }
+//!!! load to new store. loading into an existing store depends on proper handling of blank nodes
+loadFile filename = 
+   (st = store.newStore ();
+    fold
+        do a b:
+            case b of
+            Error e: Error e;
+            Triple t: OK (store.add st t);
+            esac   
+        done
+        (OK true)
+        (parseFile filename) ~> \(Store st));
+
+{ parseHandle, parseFile, loadFile }
