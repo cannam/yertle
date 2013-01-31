@@ -157,6 +157,8 @@ blank state =
 
 //!!! cyclical dependency
 // object -> nonLiteralObject -> collection -> object
+// and
+// object -> nonLiteralObject -> blankNodePropertyList -> objectList -> object
 var object' state =
     Error "object' should have been reassigned";
 
@@ -323,6 +325,8 @@ literal state =
       _: numericLiteral state;
     esac;
 
+//!!! cyclical dependency
+// blankNodePropertyList -> predicateObjectList -> objectList -> object -> nonLiteralObject -> blankNodePropertyList
 var blankNodePropertyList' state = 
     Error "blankNodePropertyList' should have been reassigned";
 
@@ -365,29 +369,30 @@ objectList state =
 // [7] predicateObjectList ::= 	verb objectList (';' (verb objectList)?)*
 // NB we permit an empty list here; caller must reject if its rule
 // demands predicateObjectList rather than predicateObjectList?
-predicateObjectList' acc state =
-    if (chomp state; state.reader.next == ".") then
-        OK (POList acc) // empty list, or ending with ; .
-    else
-        verb state ~>
-           \case of IRI iri:
-                objectList state ~>
-                   \case of Nodes nodes:
-                        OK (POList (acc ++ map do n: { p = IRI iri, o = n } done nodes));
-                    esac;
-            esac ~>
-               \case of POList lst:
-                    if (chomp state; state.reader.next == ";") then
-                        state.reader.discard ();
-                        predicateObjectList' lst state
-                    else
-                        OK (POList lst)
-                    fi;
-                esac;
-    fi;
-
 predicateObjectList state =
-    predicateObjectList' [] state;
+   (sub acc state =
+        if (chomp state; state.reader.next == ".") then
+            OK (POList acc) // empty list, or ending with ; .
+        else
+            verb state ~>
+               \case of IRI iri:
+                    objectList state ~>
+                       \case of Nodes nodes:
+                            OK (POList (acc ++
+                                        map do n: { p = IRI iri, o = n } done
+                                            nodes));
+                        esac;
+                esac ~>
+                   \case of POList lst:
+                        if (chomp state; state.reader.next == ";") then
+                            state.reader.discard ();
+                            sub lst state
+                        else
+                            OK (POList lst)
+                        fi;
+                    esac;
+        fi;
+    sub [] state);
 
 // blankNodePropertyList ::= '[' predicateObjectList ']'
 //!!! this currently allows an empty list, not permitted by spec -- check on ANON production though too
