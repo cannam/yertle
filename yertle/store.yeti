@@ -6,13 +6,13 @@ index = load yertle.index;
 typedef triple = {
     s is URI string | Blank number,
     p is URI string,
-    o is URI string | Blank number | Literal { value is string, type is string },
+    o is URI string | Blank number | Literal { value is string, type is string, language is string },
 };
 
 typedef pattern = {
     s is Wildcard () | URI string | Blank number,
     p is Wildcard () | URI string,
-    o is Wildcard () | URI string | Blank number | Literal { value is string, type is string },
+    o is Wildcard () | URI string | Blank number | Literal { value is string, type is string, language is string },
 };
 
 typedef store = {

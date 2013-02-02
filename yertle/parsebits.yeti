@@ -34,19 +34,6 @@ greedy re state =
     Error e: Error e;
     esac;
 
-// Carry out a sequence of matches; if all return OK, return OK and
-// a list of results. If any returns Error, return Error.
-//???
-sequence_n_all state seq =
-    case seq of
-    f::rest:
-        f state ~>
-        do k: sequence_n_all state rest ~>
-            do s: OK (k::s) done
-        done;
-    _: OK [];
-    esac;
-
 noseq state seq =
     case seq of
     f::rest: f state ~> \(noseq state rest);

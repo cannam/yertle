@@ -1,0 +1,31 @@
+
+module yertle.write;
+
+store = load yertle.store;
+
+writeNode handle node =
+    case node of
+    URI u:
+        handle.write "<\(u)>";
+    Blank b:
+        handle.write "_:blank\(b)";
+    Literal l:
+       (handle.write "\"\(l.value)\"";
+        if l.language != "" then
+            handle.write "@\(l.language)";
+        elif l.type != "" then
+            handle.write "^^";
+            writeNode handle (URI l.type);
+        fi)
+    esac;
+
+writeToHandle handle st =
+    for (store.enumerate st) do t:
+        for [ .s, .p, .o ] do sel:
+            writeNode handle (sel t);
+            handle.write " ";
+        done;
+        handle.write ".\n";
+    done;
+
+{ writeToHandle }
