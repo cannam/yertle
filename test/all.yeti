@@ -3,6 +3,8 @@ program test.all;
 
 { runTests } = load test.test;
 
+//!!! todo: refactor
+
 tests = [
     "index" : load test.test_index,
     "store" : load test.test_store,
@@ -11,8 +13,17 @@ tests = [
 bad = sum (mapHash do name testHash: runTests name testHash done tests);
 
 if (bad > 0) then
-    println "\n** \(bad) test(s) failed!";
+    println "\n** \(bad) test(s) failed!"
 else
-    ()
+
+    readTests = [
+        "read" : load test.test_read,
+    ];
+
+    bad = sum (mapHash do name testHash: runTests name testHash done readTests);
+
+    if (bad > 0) then
+        println "\n** \(bad) test(s) failed!";
+    fi
 fi
 

@@ -29,8 +29,9 @@ failedTests testHash =
     select (!= "")
        (mapHash do name f:
             if f () then "" else
-                println "Test \(name) failed";
-                name;
+                quoted = "\"\(name)\"";
+                println "Test \(quoted) failed";
+                quoted;
             fi 
         done testHash);
         

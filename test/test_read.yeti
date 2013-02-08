@@ -1,0 +1,70 @@
+
+module test.test_read;
+
+{ compare, compareUnordered } = load test.test;
+
+{ newStore, enumerate, contains, match } = load yertle.store;
+{ loadFile, parseFile } = load yertle.read;
+
+testFileDir = "test/ttl/spec";
+
+manifest = loadFile (testFileDir ^ "/manifest.ttl");
+
+tests = [:];
+
+metadata store iri =
+   (comments = match store { s = iri,
+                             p = IRI "http://www.w3.org/2000/01/rdf-schema#comment",
+                             o = Wildcard () };
+    actions  = match store { s = iri,
+                             p = IRI "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#action",
+                             o = Wildcard () };
+    {
+        name = 
+            case (head comments).o of
+            Literal lit: lit.value;
+            _: "";
+            esac,
+        action =
+            case (head actions).o of
+            IRI ai: ai;
+            _: "";
+            esac
+    });
+
+checkParse isPositive filename =
+    if isPositive then empty? else (not) . empty? fi
+       (find \case of Error e: true; _: false esac
+           (parseFile filename));
+
+addTest store isPositive p =
+   (iri = p.s;
+    meta = metadata store iri;
+    if meta.name == "" or meta.action == "" then
+        println "Error: Unable to retrieve test metadata for test: \(iri)";
+    else
+        tests[meta.name] := \(checkParse isPositive (testFileDir ^ "/" ^ meta.action));
+    fi);
+
+case manifest of
+    Error e:
+        println "Error: \(e)";
+        tests["manifest load failed"] := \(false);
+    Store store:
+    //!!! store should be able to expand prefixes; if store came from loadFile, it should have prefixes loaded too
+        for (match store { s = Wildcard (),
+                           p = IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                           o = IRI "http://www.w3.org/ns/rdftest#TestTurtlePositiveSyntax"
+                         })
+            (addTest store true);
+        for (match store { s = Wildcard (),
+                           p = IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                           o = IRI "http://www.w3.org/ns/rdftest#TestTurtleNegativeSyntax"
+                         })
+            (addTest store false);
+esac;
+
+//!!! todo: evaluation tests
+
+tests is hash<string, () -> boolean>;
+
