@@ -54,7 +54,7 @@ emit state triple =
 
 emitWithSubject state subject polist =
    (for polist do po: emit state { s = subject, p = po.p, o = po.o } done;
-    OK ());
+    OK (Empty ()));
 
 pnameCandidate state =
    (sub r escaped acc =
@@ -468,7 +468,7 @@ blankNodeTriples state =
                \case of POList polist:
                     emitWithSubject state subj polist;
                 esac;
-        esac;
+        esac ~> \(punctuation "." state);
 
 // [6] triples ::= subject predicateObjectList | blankNodePropertyList predicateObjectList?
 // Handles the subject part of that alternation
@@ -482,11 +482,11 @@ subjectTriples state =
                     Error "Predicate required after subject at \(state.reader.location)";
                 POList polist:
                     emitWithSubject state subj polist;
-                esac;
+                esac ~> \(punctuation "." state);
         BaseLabel ():
-            sparqlBase state ~> \(OK ());
+            sparqlBase state ~> \(OK (Empty ()));
         PrefixLabel ():
-            sparqlPrefix state ~> \(OK ());
+            sparqlPrefix state ~> \(OK (Empty ()));
         esac;
 
 triples state = 
@@ -502,7 +502,7 @@ statement state =
     else
         case state.reader.next of
         "@": directive state;
-          _: triples state ~> \(punctuation "." state);
+          _: triples state;
         esac;
     fi);
 
