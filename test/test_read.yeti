@@ -61,6 +61,9 @@ case manifest of
         println "Error: \(e)";
         tests["manifest load failed"] := \(false);
     Store store:
+       (if length (enumerate store) < 10 then
+            tests["too few tests in manifest: expected 10 or more"] := \(false);
+        fi;
     //!!! store should be able to expand prefixes; if store came from loadFile, it should have prefixes loaded too
         for (match store { s = Wildcard (),
                            p = IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
@@ -72,6 +75,7 @@ case manifest of
                            o = IRI "http://www.w3.org/ns/rdftest#TestTurtleNegativeSyntax"
                          })
             (addTest store false);
+        );
 esac;
 
 //!!! todo: evaluation tests
