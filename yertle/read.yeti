@@ -354,6 +354,8 @@ numericLiteral state =
                 num =
                     if strStarts? n "+" then
                         number (strRight n 1)
+                    elif strStarts? n "." then
+                        number ("0" ^ n)
                     else
                         number n
                     fi;
