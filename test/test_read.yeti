@@ -38,7 +38,7 @@ checkParse isPositive filename =
            (parseFile filename);
     if isPositive then
         if empty? err then true
-        else println "** In parsing \(filename):\n   \(head err)"; false fi
+        else println "\n** In parsing \(filename):\n   \(head err)"; false fi
     else
         not empty? err
     fi);
@@ -49,7 +49,11 @@ addTest store isPositive p =
     if meta.name == "" or meta.action == "" then
         println "Error: Unable to retrieve test metadata for test: \(iri)";
     else
-        tests[meta.name] := \(checkParse isPositive (testFileDir ^ "/" ^ meta.action));
+        tests[meta.name] := \(
+            try checkParse isPositive (testFileDir ^ "/" ^ meta.action)
+            catch Exception e: e#printStackTrace(); false;
+            yrt;
+        );
     fi);
 
 case manifest of
