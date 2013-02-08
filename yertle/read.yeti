@@ -256,6 +256,7 @@ subject state =
        \case of
         BaseLabel (): OK (BaseLabel ());
         PrefixLabel (): OK (PrefixLabel ());
+        Literal _: Error "Literal not permitted as subject at \(state.reader.location)";
         other: OK (Node other);
         esac;
 
