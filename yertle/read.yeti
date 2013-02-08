@@ -309,7 +309,13 @@ numericLiteral state =
                        elif n =~ "\\." then "\(xsdPrefix)decimal"
                        else "\(xsdPrefix)integer"
                        fi;
-                OK (Literal (newLiteral "\(number n)" with { type }));
+                num =
+                    if strStarts? n "+" then
+                        number (strRight n 1)
+                    else
+                        number n
+                    fi;
+                OK (Literal (newLiteral "\(num)" with { type }));
             esac;
     catch NumberFormatException _:
         Error "Malformed numeric literal at \(state.reader.location)";
