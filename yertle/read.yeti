@@ -60,7 +60,9 @@ pnameCandidate state =
    (sub r escaped acc =
         if r.isWhitespace then
             OK (Token acc)
-        elif (r.next == '#' or r.next == "." or r.next == ";" or r.next == ",") 
+        elif (r.next == '#' or r.next == "." or
+              r.next == ";" or r.next == "," or
+              r.next == ")") 
              and not escaped then
             OK (Token acc)
         else
