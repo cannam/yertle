@@ -313,6 +313,8 @@ numericLiteral state =
             esac;
     catch NumberFormatException _:
         Error "Malformed numeric literal at \(state.reader.location)";
+    catch IllegalArgumentException _: // happens if token is empty
+        Error "Expected numeric literal at \(state.reader.location)";
     yrt;
 
 // [13] literal ::= RDFLiteral | NumericLiteral | BooleanLiteral
@@ -504,13 +506,20 @@ parseFile filename =
 loadFile filename = 
    (st = store.newStore ();
     fold
-        do a b:
-            case b of
+        do acc item:
+            case acc of
             Error e: Error e;
-            Triple t: OK (store.add st t);
+            OK ():
+                case item of
+                Error e: Error e;
+                Triple t:
+                    if store.add st t then OK ()
+                    else Error "Add failed for triple \(t)" fi;
+                esac
             esac   
         done
-        (OK true)
-        (parseFile filename) ~> \(Store st));
+        (OK ())
+        (parseFile filename)
+    ~> \(Store st));
 
 { parseHandle, parseFile, loadFile }
