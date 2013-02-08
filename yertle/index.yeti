@@ -60,7 +60,7 @@ match ix pat is index -> 'a -> list<'b> =
     concat
        (case ix.order of
         selector::rest:
-            node = selector pat;
+           (node = selector pat;
             matching = case node of
                        Wildcard _: keys ix.tree;
                        _: if node in ix.tree then [node] else [] fi;
@@ -70,7 +70,7 @@ match ix pat is index -> 'a -> list<'b> =
                 Sub sub: match { order = rest, tree = sub } pat;
                 Entry e: [e];
                 esac
-            done matching;
+            done matching);
         _: [];
         esac);
 
