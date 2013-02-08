@@ -33,9 +33,15 @@ metadata store iri =
     });
 
 checkParse isPositive filename =
-    if isPositive then empty? else (not) . empty? fi
-       (find \case of Error e: true; _: false esac
-           (parseFile filename));
+   (err =
+        find \case of Error e: true; _: false esac
+           (parseFile filename);
+    if isPositive then
+        if empty? err then true
+        else println "** In parsing \(filename):\n   \(head err)"; false fi
+    else
+        not empty? err
+    fi);
 
 addTest store isPositive p =
    (iri = p.s;
