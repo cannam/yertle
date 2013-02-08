@@ -353,7 +353,7 @@ object' := object;
 objectList state =
    (chomp state;
     object state ~>
-        do obj:
+       \case of Node obj:
             if (chomp state; state.reader.next == ",") then
                (state.reader.discard ();
                 objectList state ~>
@@ -363,7 +363,7 @@ objectList state =
             else
                 OK (Nodes [obj]);
             fi;
-        done
+        esac
     );
 
 // [7] predicateObjectList ::= 	verb objectList (';' (verb objectList)?)*
