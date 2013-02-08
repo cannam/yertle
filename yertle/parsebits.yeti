@@ -28,7 +28,7 @@ greedy re state =
 
 // Given result a and function b, if a is an Error, return that
 // error; if a is an OK, pass its value to b and return that
-(~>) a b is 'a -> 'b -> (OK 'c | Error 'd) =
+(~>) a b =
     case a of
     OK result: b result;
     Error e: Error e;
