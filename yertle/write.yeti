@@ -5,7 +5,7 @@ store = load yertle.store;
 
 writeNode handle node =
     case node of
-    URI u:
+    IRI u:
         handle.write "<\(u)>";
     Blank b:
         handle.write "_:blank\(b)";
@@ -15,7 +15,7 @@ writeNode handle node =
             handle.write "@\(l.language)";
         elif l.type != "" then
             handle.write "^^";
-            writeNode handle (URI l.type);
+            writeNode handle (IRI l.type);
         fi)
     esac;
 
