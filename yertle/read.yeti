@@ -62,7 +62,7 @@ pnameCandidate state =
             OK (Token acc)
         elif (r.next == '#' or r.next == "." or
               r.next == ";" or r.next == "," or
-              r.next == ")") 
+              r.next == ")" or r.next == "]") 
              and not escaped then
             OK (Token acc)
         else
@@ -353,7 +353,11 @@ numericLiteral state =
                        fi;
                 num =
                     if strStarts? n "+" then
-                        number (strRight n 1)
+                        if strStarts? n "+." then
+                            number ("0" ^ (strRight n 1))
+                        else
+                            number (strRight n 1)
+                        fi
                     elif strStarts? n "." then
                         number ("0" ^ n)
                     else
