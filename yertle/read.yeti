@@ -18,6 +18,9 @@ newLiteral string = { value = string, type = "", language = "" };
 punctuation expected state =
     noseq state [whitespace, required expected];
 
+havePunctuation expected state =
+   (chomp state; state.reader.next == expected);
+
 langtag state =
    (sub state = 
         case greedy "[a-zA-Z]" state of
@@ -200,12 +203,11 @@ var object' state =
 //!!! This could be simpler
 collection state =
    (readObjects acc state =
-       (chomp state;
-        if state.reader.next == ")" then
+        if havePunctuation ")" state then
             OK acc
         else
             object' state ~> do obj: readObjects (acc ++ [obj]) state done
-        fi);
+        fi;
     addObjects node state objects =
         case objects of
         obj::rest:
@@ -410,7 +412,7 @@ objectList state =
    (chomp state;
     object state ~>
        \case of Node obj:
-            if (chomp state; state.reader.next == ",") then
+            if havePunctuation "," state then
                (state.reader.discard ();
                 objectList state ~>
                    \case of Nodes nodes:
@@ -427,7 +429,7 @@ objectList state =
 // demands predicateObjectList rather than predicateObjectList?
 predicateObjectList state =
    (sub acc state =
-        if (chomp state; state.reader.next == ".") then
+        if havePunctuation "." state then
             OK (POList acc) // empty list, or ending with ; .
         else
             verb state ~>
@@ -443,12 +445,13 @@ predicateObjectList state =
                     Error "Expected IRI before \(state.reader.location)";
                 esac ~>
                    \case of POList lst:
-                        if (chomp state; state.reader.next == ";") then
-                            state.reader.discard ();
+                        if havePunctuation ";" state then
+                           (state.reader.discard ();
+                            havePunctuation ";" state) loop ();
                             sub lst state
                         else
                             OK (POList lst)
-                        fi;
+                        fi
                     esac;
         fi;
     sub [] state);
