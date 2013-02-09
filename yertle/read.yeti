@@ -429,7 +429,7 @@ objectList state =
 // demands predicateObjectList rather than predicateObjectList?
 predicateObjectList state =
    (sub acc state =
-        if havePunctuation "." state then
+        if havePunctuation "." state or havePunctuation "]" state then
             OK (POList acc) // empty list, or ending with ; .
         else
             verb state ~>
