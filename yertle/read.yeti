@@ -40,19 +40,18 @@ iriref state =
                   greedy "[^\\x00-\\x20<>\"{}|^`\\\\]", //!!! " or UCHAR
                   required ">"];
 
-// REs for prefix:local matching. Does not yet handle PLX (rule 169s)
-
+// Regexes for prefix:local matching
 pnBaseRange = "A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD";
-
-//!!! NB Yeti docs say it will optimise REs made from constant
-//strings: how should we take advantage of that?
 pnCharsBase = "[\(pnBaseRange)]";
 pnCharsU    = "[\(pnBaseRange)_]";
 pnChars     = "[\(pnBaseRange)_0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040-]";
 pnPrefix    = "\(pnCharsBase)(?:(?:\(pnChars)|\\.)*\(pnChars))?";
 bnode       = "(?:\(pnCharsU)|[0-9])(?:(?:\(pnChars)|\\.)*(?:\(pnChars)))?";
-pnLocal     = "(?:(?:\(pnCharsU)|[0-9:])(?:(?:\(pnChars)|\\.|:)*(?:\(pnChars)|:))?)?"; //!!! needs PLX
-pname       = "(\(pnPrefix))?:(\(pnLocal))"; // NB this ?: is not like the rest
+percent     = "(?:%[0-9A-Fa-f][0-9A-Fa-f])";
+pnLocalEsc  = "(?:\\\\[_~.!$&'()*+,;=/?#@%-])";
+plx         = "\(percent)|\(pnLocalEsc)";
+pnLocal     = "(?:(?:\(pnCharsU)|[0-9:]|\(plx))(?:(?:\(pnChars)|\\.|:|\(plx))*(?:\(pnChars)|:|\(plx)))?)?";
+pname       = "(\(pnPrefix))?:(\(pnLocal))"; // Note, this ?: is not like the rest
 
 emit state triple =
     push state.pendingTriples triple;
@@ -142,8 +141,11 @@ booleanType =
 newBoolLiteral b =
     Literal (newLiteral (if b then "true" else "false" fi) with { type = booleanType });
 
+matchPrefixedName =
+    matchAll "^\(pname)$" M T;
+
 prefixExpanded state text =
-    case matchAll "^\(pname)$" M T text of
+    case matchPrefixedName text of
     [M [whole, prefix, local]]:
         if prefix in state.namespaces then
             OK (IRI (state.namespaces[prefix] ^ local));
@@ -329,8 +331,20 @@ unicodeEscape state =
             esac
         );
 
-escape state =
-    Error "Escapes not implemented yet";
+backslashEscape state =
+    required "\\" state ~>
+      \(res = case state.reader.next of
+         "t": OK (Token "\t");
+         "b": OK (Token "\b");
+         "n": OK (Token "\n");
+         "r": OK (Token "\r");
+         "f": OK (Token "\f");
+        "\"": OK (Token "\"");
+         "'": OK (Token  "'");
+           _: Error "Expected one of tbrf\"' after \\ at \(state.reader.location)";
+       esac;
+       state.reader.discard ();
+       res);
 
 shortStringBody quote state =
    (sub state quote acc =
@@ -343,7 +357,7 @@ shortStringBody quote state =
                     Token t: sub state quote (acc ^ t);
                     esac
             elif state.reader.nextButOne =~ "[tbnrf\"']" then
-                escape state ~>
+                backslashEscape state ~>
                    \case of
                     Token t: sub state quote (acc ^ t);
                     esac
