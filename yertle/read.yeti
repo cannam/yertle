@@ -144,11 +144,33 @@ newBoolLiteral b =
 matchPrefixedName =
     matchAll "^\(pname)$" M T;
 
+// Assumes local is known to match the pname local escapes patterns
+// (i.e. if it has any escapes, they will have enough characters in
+// the escaped data)
+expandPNLocalEscapes local =
+   (sub acc local =
+        if local == "" then acc
+        elif strStarts? local "%" then
+            hex = "0x\(strSlice local 1 3)";
+            sub (acc ^ (strJoin "" Character#toChars(number hex)))
+                (strRight local 3);
+        elif strStarts? local "\\" then
+            //!!! Not implemented yet
+            sub (acc ^ strLeft local 1) (strRight local 1);
+        else
+            sub (acc ^ strLeft local 1) (strRight local 1);
+        fi;
+    sub "" local);
+
 prefixExpanded state text =
     case matchPrefixedName text of
     [M [whole, prefix, local]]:
         if prefix in state.namespaces then
-            OK (IRI (state.namespaces[prefix] ^ local));
+            try
+                OK (IRI (state.namespaces[prefix] ^ expandPNLocalEscapes local));
+            catch NumberFormatException _:
+                Error "Malformed escape in local name '\(local)' before \(state.reader.location)";
+            yrt
         else
             Error "Unknown namespace prefix '\(prefix)' at \(state.reader.location)";
         fi;
