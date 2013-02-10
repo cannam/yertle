@@ -340,31 +340,47 @@ rdfLiteral state =
             esac;
         esac;
 
-// Currently using Java's number parser rather than Turtle rules (I
-// wonder what the difference is)
+numericCandidate state =
+    greedy '[0-9eE+-]' state ~>
+       \case of
+        Token n:
+            if state.reader.next == "." and
+               state.reader.nextButOne =~ "[0-9Ee]" then
+                state.reader.discard ();
+                greedy '[0-9eE+-]' state ~>
+                   \case of
+                    Token nn: OK (Token (n ^ "." ^ nn));
+                    esac;
+            else
+                OK (Token n);
+            fi;
+        esac;
+
+// Adapt the Turtle numeric literal syntax into something that Java's
+// string to number conversion will like
+javaNumberStringFor n =
+    if strStarts? n "+" then
+        if strStarts? n "+." then
+            "0" ^ (strRight n 1)
+        else
+            strRight n 1
+        fi
+    elif strStarts? n "." then
+        "0" ^ n
+    else
+        n
+    fi;
+
 numericLiteral state =
     try
-        greedy '[0-9eE+\.-]' state ~> 
+        numericCandidate state ~> 
            \case of
-            Token ".":
-                Error "Expected literal at \(state.reader.location)";
             Token n:
                 type = if n =~ "[Ee]" then "\(xsdPrefix)double"
                        elif n =~ "\\." then "\(xsdPrefix)decimal"
                        else "\(xsdPrefix)integer"
                        fi;
-                num =
-                    if strStarts? n "+" then
-                        if strStarts? n "+." then
-                            number ("0" ^ (strRight n 1))
-                        else
-                            number (strRight n 1)
-                        fi
-                    elif strStarts? n "." then
-                        number ("0" ^ n)
-                    else
-                        number n
-                    fi;
+                num = number (javaNumberStringFor n);
                 OK (Literal (newLiteral "\(num)" with { type }));
             esac;
     catch NumberFormatException _:
