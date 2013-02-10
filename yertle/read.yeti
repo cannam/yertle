@@ -6,6 +6,8 @@ store = load yertle.store;
 
 load yertle.parsebits;
 
+import java.lang: Character;
+
 xsdPrefix = "http://www.w3.org/2001/XMLSchema#";
 rdfPrefix = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
 rdfTypeIRI  = IRI "\(rdfPrefix)type";
@@ -292,7 +294,7 @@ openQuote state =
         fi
     fi);
 
-longString state quote =
+longStringBody quote state =
    (sub r quote acc n =
         if r.next == quote then
             if n == 2 then // this is the third quote in a row, ends the string
@@ -308,15 +310,63 @@ longString state quote =
         fi;
     sub state.reader quote "" 0);
 
+unicodeEscape state =
+    required "\\" state ~>
+      \(n = case state.reader.next of "u": 4; "U": 8; _: 0 esac;
+        if n == 0 then Error "Expected \\U or \\u at \(state.reader.location)";
+        else 
+            state.reader.discard ();
+            OK (Token (fold do a b: a ^ state.reader.read () done "" [1..n]));
+        fi ~>
+           \case of
+            Token t:
+                try OK (Token (strJoin "" Character#toChars(number "0x\(t)")));
+                catch NumberFormatException _:
+                    Error "Expected \(n)-character hex at \(state.reader.location)";
+                catch IllegalArgumentException _:
+                    Error "Escaped character out of range at \(state.reader.location)";
+                yrt
+            esac
+        );
+
+escape state =
+    Error "Escapes not implemented yet";
+
+shortStringBody quote state =
+   (sub state quote acc =
+        if state.reader.next =~ "[^\\x5c\\x0a\\x0d\(quote)]" then
+            sub state quote (acc ^ (state.reader.read ()));
+        elif state.reader.next == "\\" then
+            if state.reader.nextButOne =~ "[Uu]" then
+                unicodeEscape state ~>
+                   \case of
+                    Token t: sub state quote (acc ^ t);
+                    esac
+            elif state.reader.nextButOne =~ "[tbnrf\"']" then
+                escape state ~>
+                   \case of
+                    Token t: sub state quote (acc ^ t);
+                    esac
+            else 
+                OK (Token acc)
+            fi
+        else
+            OK (Token acc)
+        fi;
+    sub state quote "" ~>
+       \case of
+        Token text: required quote state ~> \(OK (Token text));
+        esac);
+
 stringBody state =
     openQuote state ~>
        \case of
         Empty ():
             OK (Token "");
         Short q:
-            tokseq state [ greedy "[^\\x5c\\x0a\\x0d\(q)]", required q ];
+            shortStringBody q state;
         Long q:
-            longString state q;
+            longStringBody q state;
         esac;
 
 //!!! still does not handle escapes, \u etc
@@ -356,7 +406,7 @@ numericCandidate state =
             fi;
         esac;
 
-// Adapt the Turtle numeric literal syntax into something that Java's
+// Adapt the Turtle numeric literal syntax into something that Yeti's
 // string to number conversion will like
 javaNumberStringFor n =
     if strStarts? n "+" then
