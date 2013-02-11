@@ -80,8 +80,10 @@ contains ix stmt is index -> 'a -> boolean =
 scoreIndexFor pat order is 'a -> 'b -> number =
     case order of
     selector::rest:
-        if (selector pat) == Wildcard () then 0 else 16 fi
-            + (scoreIndexFor pat rest) / 2;
+        case selector pat of
+        Wildcard _: 0;
+                 _: 16
+        esac + (scoreIndexFor pat rest) / 2;
     _: 0;
     esac;
 
