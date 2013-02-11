@@ -26,23 +26,6 @@ havePunctuation expected state =
 azMatcher   = (=~ "[a-z]");
 azAZMatcher = (=~ "[a-zA-Z]");
 
-langtag state =
-   (sub state = 
-        case greedy azAZMatcher state of
-        OK (Token tag):
-            if state.reader.next == "-" then
-                tag ^ state.reader.read () ^ sub state
-            else
-                tag
-            fi;
-        esac;
-        tokseq state [required "@", OK . Token . sub]);
-
-iriref state =
-    tokseq state [required "<",
-                  greedy (=~ "[^\\x00-\\x20<>\"{}|^`\\\\]"), //!!! " or UCHAR
-                  required ">"];
-
 // Regexes for prefix:local matching
 pnBaseRange = "A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD";
 pnCharsBase = "[\(pnBaseRange)]";
@@ -56,6 +39,40 @@ plx         = "\(percent)|\(pnLocalEsc)";
 pnLocal     = "(?:(?:\(pnCharsU)|[0-9:]|\(plx))(?:(?:\(pnChars)|\\.|:|\(plx))*(?:\(pnChars)|:|\(plx)))?)?";
 pname       = "(\(pnPrefix))?:(\(pnLocal))"; // Note, this ?: is not like the rest
 
+unicodeEscape state =
+    required "\\" state ~>
+      \(n = case state.reader.next of "u": 4; "U": 8; _: 0 esac;
+        if n == 0 then Error "Expected \\U or \\u at \(state.reader.location)";
+        else 
+            state.reader.discard ();
+            OK (Token (fold do a b: a ^ state.reader.read () done "" [1..n]));
+        fi ~>
+           \case of
+            Token t:
+                try OK (Token (strJoin "" Character#toChars(number "0x\(t)")));
+                catch NumberFormatException _:
+                    Error "Expected \(n)-character hex at \(state.reader.location)";
+                catch IllegalArgumentException _:
+                    Error "Escaped character out of range at \(state.reader.location)";
+                yrt
+            esac
+        );
+
+backslashEscape state =
+    required "\\" state ~>
+      \(res = case state.reader.next of
+         "t": OK (Token "\t");
+         "b": OK (Token "\b");
+         "n": OK (Token "\n");
+         "r": OK (Token "\r");
+         "f": OK (Token "\f");
+        "\"": OK (Token "\"");
+         "'": OK (Token  "'");
+           _: Error "Expected one of tbrf\"' after \\ at \(state.reader.location)";
+       esac;
+       state.reader.discard ();
+       res);
+
 emit state triple =
     push state.pendingTriples triple;
 
@@ -63,8 +80,26 @@ emitWithSubject state subject polist =
    (for polist do po: emit state { s = subject, p = po.p, o = po.o } done;
     OK (Empty ()));
 
+langtag state =
+   (sub state = 
+        case greedy azAZMatcher state of
+        OK (Token tag):
+            if state.reader.next == "-" then
+                tag ^ state.reader.read () ^ sub state
+            else
+                tag
+            fi;
+        esac;
+        tokseq state [required "@", OK . Token . sub]);
+
+
+iriref state =
+    tokseq state [required "<",
+                  greedy (=~ '[^\x00-\x20<>"{}|^`\\]'),   //"
+                  required ">"];
+
 pnameCandidate state =
-   (sub r escaped acc =
+   (sub escaped acc r =
         if r.isWhitespace then
             OK (Token acc)
         elif (r.next == '#' or r.next == "." or
@@ -74,9 +109,9 @@ pnameCandidate state =
             OK (Token acc)
         else
             escaped = (r.next == '\');
-            sub r escaped (acc ^ r.read ());
+            sub escaped (acc ^ r.read ()) r;
         fi;
-    sub state.reader false "");
+    sub false "" state.reader);
 
 pnameNS state =
     pnameCandidate state ~>
@@ -322,71 +357,37 @@ openQuote state =
     fi);
 
 longStringBody quote state =
-   (sub r quote acc n =
+   (sub quote n acc r =
         if r.next == quote then
             if n == 2 then // this is the third quote in a row, ends the string
                 r.discard ();
                 OK (Token (strLeft acc (strLength acc - 2)));
             else
-                sub r quote (acc ^ r.read ()) (n + 1)
+                sub quote (n + 1) (acc ^ r.read ()) r
             fi
         elif r.isEof then
             Error "End of file reached in long string"
         else
-            sub r quote (acc ^ r.read ()) 0
+            sub quote 0 (acc ^ r.read ()) r
         fi;
-    sub state.reader quote "" 0);
-
-unicodeEscape state =
-    required "\\" state ~>
-      \(n = case state.reader.next of "u": 4; "U": 8; _: 0 esac;
-        if n == 0 then Error "Expected \\U or \\u at \(state.reader.location)";
-        else 
-            state.reader.discard ();
-            OK (Token (fold do a b: a ^ state.reader.read () done "" [1..n]));
-        fi ~>
-           \case of
-            Token t:
-                try OK (Token (strJoin "" Character#toChars(number "0x\(t)")));
-                catch NumberFormatException _:
-                    Error "Expected \(n)-character hex at \(state.reader.location)";
-                catch IllegalArgumentException _:
-                    Error "Escaped character out of range at \(state.reader.location)";
-                yrt
-            esac
-        );
-
-backslashEscape state =
-    required "\\" state ~>
-      \(res = case state.reader.next of
-         "t": OK (Token "\t");
-         "b": OK (Token "\b");
-         "n": OK (Token "\n");
-         "r": OK (Token "\r");
-         "f": OK (Token "\f");
-        "\"": OK (Token "\"");
-         "'": OK (Token  "'");
-           _: Error "Expected one of tbrf\"' after \\ at \(state.reader.location)";
-       esac;
-       state.reader.discard ();
-       res);
+    sub quote 0 "" state.reader);
 
 shortStringMatcher quote = (=~ "[^\\x5c\\x0a\\x0d\(quote)]");
 
 shortStringBody quote state =
-   (sub state matcher acc =
+   (sub matcher acc state =
         if matcher state.reader.next then
-            sub state matcher (acc ^ (state.reader.read ()));
+            sub matcher (acc ^ (state.reader.read ())) state;
         elif state.reader.next == "\\" then
             if state.reader.nextButOne =~ "[Uu]" then
                 unicodeEscape state ~>
                    \case of
-                    Token t: sub state matcher (acc ^ t);
+                    Token t: sub matcher (acc ^ t) state;
                     esac
             elif state.reader.nextButOne =~ "[tbnrf\"']" then
                 backslashEscape state ~>
                    \case of
-                    Token t: sub state matcher (acc ^ t);
+                    Token t: sub matcher (acc ^ t) state;
                     esac
             else 
                 OK (Token acc)
@@ -394,10 +395,7 @@ shortStringBody quote state =
         else
             OK (Token acc)
         fi;
-    sub state (shortStringMatcher quote) "" ~>
-       \case of
-        Token text: required quote state ~> \(OK (Token text));
-        esac);
+    tokseq state [ sub (shortStringMatcher quote) "", required quote ]);
 
 stringBody state =
     openQuote state ~>
