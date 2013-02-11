@@ -8,6 +8,7 @@ program test.all;
 tests = [
     "index" : load test.test_index,
     "store" : load test.test_store,
+    "read" : load test.test_read,
 ];
 
 bad = sum (mapHash do name testHash: runTests name testHash done tests);
@@ -16,11 +17,11 @@ if (bad > 0) then
     println "\n** \(bad) test(s) failed!"
 else
 
-    readTests = [
-        "read" : load test.test_read,
+    specTests = [
+        "spec" : load test.test_spec,
     ];
 
-    bad = sum (mapHash do name testHash: runTests name testHash done readTests);
+    bad = sum (mapHash do name testHash: runTests name testHash done specTests);
 
     if (bad > 0) then
         println "\n** \(bad) test(s) failed!";

@@ -1,5 +1,5 @@
 
-module test.test_read;
+module test.test_spec;
 
 { compare, compareUnordered } = load test.test;
 
