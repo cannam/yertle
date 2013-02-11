@@ -10,18 +10,11 @@ import java.lang: Character;
 
 xsdPrefix = "http://www.w3.org/2001/XMLSchema#";
 rdfPrefix = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
+
 rdfTypeIRI  = IRI "\(rdfPrefix)type";
 rdfFirstIRI = IRI "\(rdfPrefix)first";
 rdfRestIRI  = IRI "\(rdfPrefix)rest";
 rdfNilIRI   = IRI "\(rdfPrefix)nil";
-
-newLiteral string = { value = string, type = "", language = "" };
-
-punctuation expected state =
-    noseq state [whitespace, required expected];
-
-havePunctuation expected state =
-   (chomp state; state.reader.next == expected);
 
 azMatcher   = (=~ "[a-z]");
 azAZMatcher = (=~ "[a-zA-Z]");
@@ -37,6 +30,14 @@ percent     = "(?:%[0-9A-Fa-f][0-9A-Fa-f])";
 pnLocalEsc  = "(?:\\\\[_~.!$&'()*+,;=/?#@%-])";
 plx         = "\(percent)|\(pnLocalEsc)";
 pnLocal     = "(?:(?:\(pnCharsU)|[0-9:]|\(plx))(?:(?:\(pnChars)|\\.|:|\(plx))*(?:\(pnChars)|:|\(plx)))?)?";
+
+newLiteral string = { value = string, type = "", language = "" };
+
+punctuation expected state =
+    noseq state [whitespace, required expected];
+
+havePunctuation expected state =
+   (chomp state; state.reader.next == expected);
 
 unicodeEscape state =
     required "\\" state ~>
@@ -89,13 +90,25 @@ langtag state =
                 tag
             fi;
         esac;
-        tokseq state [required "@", OK . Token . sub]);
-
+    tokseq state [required "@", OK . Token . sub]);
 
 iriref state =
+   (sub matcher acc state =
+        case greedy matcher state of
+        OK (Token part):
+            if state.reader.next == "\\" and
+               state.reader.nextButOne =~ "[Uu]" then
+                unicodeEscape state ~>
+                   \case of
+                    Token u: sub matcher (acc ^ part ^ u) state;
+                    esac;
+            else
+                OK (Token (acc ^ part));
+            fi
+        esac;
     tokseq state [required "<",
-                  greedy (=~ '[^\x00-\x20<>"{}|^`\\]'),   //"
-                  required ">"];
+                  sub (=~ '[^\x00-\x20<>"{}|^`\\]') "",   //"
+                  required ">"]);
 
 pnameCandidate state =
    (sub escaped acc r =
