@@ -460,16 +460,10 @@ numericCandidate state =
 // Adapt the Turtle numeric literal syntax into something that Yeti's
 // string to number conversion will like
 parseableNumber n =
-    if strStarts? n "+" then
-        if strStarts? n "+." then
-            "0" ^ (strRight n 1)
-        else
-            strRight n 1
-        fi
-    elif strStarts? n "." then
-        "0" ^ n
-    else
-        n
+    if strStarts? n "+." then "0" ^ (strRight n 1)
+    elif strStarts? n "+" then strRight n 1
+    elif strStarts? n "." then "0" ^ n
+    else n
     fi;
 
 numericLiteral state =
