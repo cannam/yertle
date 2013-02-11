@@ -41,17 +41,17 @@ noseq state seq =
     esac;
 
 tokseq state seq =
-   (sub acc state seq =
+   (tokseq' acc state seq =
         case seq of
         f::rest:
             f state ~>
            \case of
-            Token t: sub (OK (Token t)) state rest;
-                  _: sub acc state rest;
+            Token t: tokseq' (OK (Token t)) state rest;
+                  _: tokseq' acc state rest;
             esac;
         _: acc;
         esac;
-    sub (Error "No token found at \(state.reader.location)") state seq);
+    tokseq' (Error "No token found at \(state.reader.location)") state seq);
 
 { whitespace, chomp, required, greedy, ~>, noseq, tokseq }
 
