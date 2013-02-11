@@ -82,7 +82,7 @@ azAZMatcher = like "^[a-zA-Z]*";
 
 langtag state =
    (langtag' state = 
-       (tag = state.reader.match azAZMatcher;
+       (tag = state.reader.readMatch azAZMatcher;
         if state.reader.next == "-" then
             tag ^ state.reader.read () ^ langtag' state
         else
@@ -91,12 +91,12 @@ langtag state =
     tokseq state [required "@", OK . Token . langtag']);
 
 iriPartMatcher = like '^[^\x00-\x20<>"{}|^`\\]*'; //"
+slashUMatcher = like '^\\[Uu]';
 
 iriref state =
    (iriref' acc state =
-       (part = state.reader.match iriPartMatcher;
-        if state.reader.next == "\\" and
-           state.reader.nextButOne =~ "[Uu]" then
+       (part = state.reader.readMatch iriPartMatcher;
+        if state.reader.lookingAt slashUMatcher then
             unicodeEscape state ~>
                \case of
                 Token u: iriref' (acc ^ part ^ u) state;
@@ -112,10 +112,7 @@ pnameCandidate state =
    (pnameCandidate' escaped acc r =
         if r.isWhitespace then
             OK (Token acc)
-        elif (r.next == '#' or r.next == "." or
-              r.next == ";" or r.next == "," or
-              r.next == ")" or r.next == "]") 
-             and not escaped then
+        elif strIndexOf "#.;,)]" r.next 0 >= 0 and not escaped then
             OK (Token acc)
         else
             escaped = (r.next == '\');
@@ -350,7 +347,7 @@ azMatcher = like "^[a-z]*";
 
 // [133s] BooleanLiteral ::= 'true' | 'false'
 booleanLiteral state =
-   (lit = state.reader.match azMatcher;
+   (lit = state.reader.readMatch azMatcher;
     if lit == "true" then OK (newBoolLiteral true);
     elif lit == "false" then OK (newBoolLiteral false);
     else Error "Expected 'true' or 'false' at \(state.reader.location)";
@@ -391,26 +388,23 @@ longStringBody quote state =
     longStringBody' quote 0 "" state.reader);
 
 shortStringMatcher quote = (=~ "[^\\x5c\\x0a\\x0d\(quote)]");
+shortStringEscMatcher = like "^\\\\[tbnrf\\\\\"']";
 
 shortStringBody quote state =
    (shortStringBody' matcher acc state =
         if matcher state.reader.next then
             shortStringBody' matcher (acc ^ (state.reader.read ())) state;
-        elif state.reader.next == "\\" then
-            if state.reader.nextButOne =~ "[Uu]" then
-                unicodeEscape state ~>
-                   \case of
-                    Token t: shortStringBody' matcher (acc ^ t) state;
-                    esac
-            elif state.reader.nextButOne =~ "[tbnrf\\\\\"']" then
-                backslashEscape state ~>
-                   \case of
-                    Token t: shortStringBody' matcher (acc ^ t) state;
-                    esac
-            else 
-                OK (Token acc)
-            fi
-        else
+        elif state.reader.lookingAt slashUMatcher then
+            unicodeEscape state ~>
+               \case of
+                Token t: shortStringBody' matcher (acc ^ t) state;
+                esac
+        elif state.reader.lookingAt shortStringEscMatcher then
+            backslashEscape state ~>
+               \case of
+                Token t: shortStringBody' matcher (acc ^ t) state;
+                esac
+        else 
             OK (Token acc)
         fi;
     tokseq state [ shortStringBody' (shortStringMatcher quote) "", required quote ]);
@@ -446,15 +440,14 @@ rdfLiteral state =
             esac;
         esac;
 
-numericalMatcher = like "^[0-9eE+-]*";
-numAfterDotMatcher = (=~ "[0-9eE]");
+numericalMatcher = like '^[0-9eE+-]*';
+numAfterDotMatcher = like '^\.[0-9eE]';
 
 numericCandidate state =
-   (n = state.reader.match numericalMatcher;
-    if state.reader.next == "." and
-       numAfterDotMatcher state.reader.nextButOne then
+   (n = state.reader.readMatch numericalMatcher;
+    if state.reader.lookingAt numAfterDotMatcher then
         state.reader.discard ();
-        nn = state.reader.match numericalMatcher;
+        nn = state.reader.readMatch numericalMatcher;
         OK (Token (n ^ "." ^ nn));
     else
         OK (Token n);
