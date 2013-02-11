@@ -93,6 +93,8 @@ langtag state =
         esac;
     tokseq state [required "@", OK . Token . sub]);
 
+iriPartMatcher = (=~ '[^\x00-\x20<>"{}|^`\\]'); //"
+
 iriref state =
    (sub matcher acc state =
         case greedy matcher state of
@@ -108,7 +110,7 @@ iriref state =
             fi
         esac;
     tokseq state [required "<",
-                  sub (=~ '[^\x00-\x20<>"{}|^`\\]') "",   //"
+                  sub iriPartMatcher "",
                   required ">"]);
 
 pnameCandidate state =
@@ -126,13 +128,15 @@ pnameCandidate state =
         fi;
     sub false "" state.reader);
 
+pnPrefixMatcher = (=~ "^\(pnPrefix)$");
+
 pnameNS state =
     pnameCandidate state ~>
        \case of
         Token t:
             if strEnds? t ":" then
                 pfx = strLeft t ((strLength t) - 1);
-                if pfx == "" or pfx =~ "^\(pnPrefix)$" then
+                if pfx == "" or pnPrefixMatcher pfx then
                     OK (Token pfx)
                 else
                     Error "Malformed prefix '\(pfx)' at \(state.reader.location)"
@@ -228,6 +232,9 @@ prefixExpanded state text =
     _: Error "Malformed prefixed name '\(text)' at \(state.reader.location)";
     esac;
 
+sparqlBaseMatcher = (=~ "^[Bb][Aa][Ss][Ee]$");
+sparqlPrefixMatcher = (=~ "^[Pp][Rr][Ee][Ff][Ii][Xx]$");
+
 prefixedName state =
     pnameCandidate state ~>
        \case of
@@ -236,8 +243,8 @@ prefixedName state =
         Token t:
             if t == "true" then OK (newBoolLiteral true);
             elif t == "false" then OK (newBoolLiteral false);
-            elif t =~ "^[Bb][Aa][Ss][Ee]$" then OK (BaseLabel ());
-            elif t =~ "^[Pp][Rr][Ee][Ff][Ii][Xx]$" then OK (PrefixLabel ());
+            elif sparqlBaseMatcher t then OK (BaseLabel ());
+            elif sparqlPrefixMatcher t then OK (PrefixLabel ());
             else prefixExpanded state t;
             fi;
         esac;
