@@ -387,26 +387,25 @@ longStringBody quote state =
         fi;
     longStringBody' quote 0 "" state.reader);
 
-shortStringMatcher quote = (=~ "[^\\x5c\\x0a\\x0d\(quote)]");
+shortStringMatcher quote = like "^[^\\x5c\\x0a\\x0d\(quote)]*";
 shortStringEscMatcher = like "^\\\\[tbnrf\\\\\"']";
 
 shortStringBody quote state =
    (shortStringBody' matcher acc state =
-        if matcher state.reader.next then
-            shortStringBody' matcher (acc ^ (state.reader.read ())) state;
-        elif state.reader.lookingAt slashUMatcher then
+       (text = state.reader.readMatch matcher;
+        if state.reader.lookingAt slashUMatcher then
             unicodeEscape state ~>
                \case of
-                Token t: shortStringBody' matcher (acc ^ t) state;
+                Token t: shortStringBody' matcher (text ^ acc ^ t) state;
                 esac
         elif state.reader.lookingAt shortStringEscMatcher then
             backslashEscape state ~>
                \case of
-                Token t: shortStringBody' matcher (acc ^ t) state;
+                Token t: shortStringBody' matcher (text ^ acc ^ t) state;
                 esac
         else 
-            OK (Token acc)
-        fi;
+            OK (Token (text ^ acc))
+        fi);
     tokseq state [ shortStringBody' (shortStringMatcher quote) "", required quote ]);
 
 stringBody state =
