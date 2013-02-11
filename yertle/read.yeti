@@ -37,7 +37,6 @@ percent     = "(?:%[0-9A-Fa-f][0-9A-Fa-f])";
 pnLocalEsc  = "(?:\\\\[_~.!$&'()*+,;=/?#@%-])";
 plx         = "\(percent)|\(pnLocalEsc)";
 pnLocal     = "(?:(?:\(pnCharsU)|[0-9:]|\(plx))(?:(?:\(pnChars)|\\.|:|\(plx))*(?:\(pnChars)|:|\(plx)))?)?";
-pname       = "(\(pnPrefix))?:(\(pnLocal))"; // Note, this ?: is not like the rest
 
 unicodeEscape state =
     required "\\" state ~>
@@ -180,7 +179,7 @@ newBoolLiteral b =
     Literal (newLiteral (if b then "true" else "false" fi) with { type = booleanType });
 
 matchPrefixedName =
-    matchAll "^\(pname)$" M T;
+    matchAll "^(\(pnPrefix))?:(\(pnLocal))$" M T;
 
 // Assumes local is known to match the pname local escapes patterns
 // (i.e. if it has any escapes, they will have enough characters in
