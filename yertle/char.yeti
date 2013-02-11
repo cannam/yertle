@@ -6,16 +6,14 @@ reader handle =
     var nextButOne = "";
     var lineno = 1;
     var colno = 0;
-    var charno = 0;
     ws c = (strIndexOf "\n\t\r " c 0 >= 0);
     eol c = (c == "\n" or c == "\r");
     reload () =
        (nextChar := nextButOne;
         nextButOne := handle.read 1;
-        if eol nextChar then colno := 1; lineno := lineno + 1;
+        if nextChar == "\n" then colno := 1; lineno := lineno + 1;
         else colno := colno + 1;
-        fi;
-        charno := charno + 1);
+        fi);
     reload ();
     reload ();
     {
