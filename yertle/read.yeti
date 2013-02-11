@@ -260,11 +260,13 @@ blankNodeFor state b =
     fi;
     state.bnodeLabels[b]);
 
+blankMatcher = (=~ "^\(bnode)$");
+
 blank state =
     tokseq state [required '_', required ':', pnameCandidate] ~>
        \case of
         Token b:
-            if b =~ "^\(bnode)$" then
+            if blankMatcher b then
                 OK (blankNodeFor state b)
             else
                 Error "Malformed blank node label '\(b)' at \(state.reader.location)";
