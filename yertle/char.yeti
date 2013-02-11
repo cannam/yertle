@@ -15,11 +15,20 @@ reader handle =
     advance () =
        (colno := colno + 1;
         if colno > strLength line then loadLine () fi);
+    match likeMatcher =
+        case likeMatcher (strRight line colno) () of
+        [match]:
+            colno := colno + strLength match;
+            if colno > strLength line then loadLine () fi;
+            match;
+        _: "";
+        esac;
     loadLine ();
     {
         get next () = charAt colno,
         read () = (c = charAt colno; advance (); c),
         discard () = advance (),
+        match,
         get nextButOne () = charAt (colno + 1),
         get isWhitespace () = ws (charAt colno),
         get isEol () = eol (charAt colno),

@@ -16,9 +16,6 @@ rdfFirstIRI = IRI "\(rdfPrefix)first";
 rdfRestIRI  = IRI "\(rdfPrefix)rest";
 rdfNilIRI   = IRI "\(rdfPrefix)nil";
 
-azMatcher   = (=~ "[a-z]");
-azAZMatcher = (=~ "[a-zA-Z]");
-
 // Regexes for prefix:local matching
 pnBaseRange = "A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD";
 pnCharsBase = "[\(pnBaseRange)]";
@@ -81,9 +78,11 @@ emitWithSubject state subject polist =
    (for polist do po: emit state { s = subject, p = po.p, o = po.o } done;
     OK (Empty ()));
 
+azAZMatcher = like "^[a-zA-Z]*";
+
 langtag state =
    (langtag' state = 
-       (tag = greedy azAZMatcher state;
+       (tag = state.reader.match azAZMatcher;
         if state.reader.next == "-" then
             tag ^ state.reader.read () ^ langtag' state
         else
@@ -91,22 +90,22 @@ langtag state =
         fi);
     tokseq state [required "@", OK . Token . langtag']);
 
-iriPartMatcher = (=~ '[^\x00-\x20<>"{}|^`\\]'); //"
+iriPartMatcher = like '^[^\x00-\x20<>"{}|^`\\]*'; //"
 
 iriref state =
-   (iriref' matcher acc state =
-       (part = greedy matcher state;
+   (iriref' acc state =
+       (part = state.reader.match iriPartMatcher;
         if state.reader.next == "\\" and
            state.reader.nextButOne =~ "[Uu]" then
             unicodeEscape state ~>
                \case of
-                Token u: iriref' matcher (acc ^ part ^ u) state;
+                Token u: iriref' (acc ^ part ^ u) state;
                 esac;
         else
             OK (Token (acc ^ part));
         fi);
     tokseq state [required "<",
-                  iriref' iriPartMatcher "",
+                  iriref' "",
                   required ">"]);
 
 pnameCandidate state =
@@ -345,9 +344,11 @@ subject state =
 datatype state =
     required "^" state ~> \(required "^" state) ~> \(iri state);
 
+azMatcher = like "^[a-z]*";
+
 // [133s] BooleanLiteral ::= 'true' | 'false'
 booleanLiteral state =
-   (lit = greedy azMatcher state;
+   (lit = state.reader.match azMatcher;
     if lit == "true" then OK (newBoolLiteral true);
     elif lit == "false" then OK (newBoolLiteral false);
     else Error "Expected 'true' or 'false' at \(state.reader.location)";
@@ -443,15 +444,15 @@ rdfLiteral state =
             esac;
         esac;
 
-numericalMatcher = (=~ "[0-9eE+-]");
+numericalMatcher = like "^[0-9eE+-]*";
 numAfterDotMatcher = (=~ "[0-9eE]");
 
 numericCandidate state =
-   (n = greedy numericalMatcher state;
+   (n = state.reader.match numericalMatcher;
     if state.reader.next == "." and
        numAfterDotMatcher state.reader.nextButOne then
         state.reader.discard ();
-        nn = greedy numericalMatcher state;
+        nn = state.reader.match numericalMatcher;
         OK (Token (n ^ "." ^ nn));
     else
         OK (Token n);
