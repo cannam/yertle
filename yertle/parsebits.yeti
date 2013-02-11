@@ -24,7 +24,7 @@ required expected state =
 greedy matcher state =
    (var tok = "";
     matcher state.reader.next loop tok := tok ^ (state.reader.read ());
-    OK (Token tok));
+    tok);
 
 // Given result a and function b, if a is an Error, return that
 // error; if a is an OK, pass its value to b and return that

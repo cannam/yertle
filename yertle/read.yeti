@@ -83,32 +83,28 @@ emitWithSubject state subject polist =
 
 langtag state =
    (sub state = 
-        case greedy azAZMatcher state of
-        OK (Token tag):
-            if state.reader.next == "-" then
-                tag ^ state.reader.read () ^ sub state
-            else
-                tag
-            fi;
-        esac;
+       (tag = greedy azAZMatcher state;
+        if state.reader.next == "-" then
+            tag ^ state.reader.read () ^ sub state
+        else
+            tag
+        fi);
     tokseq state [required "@", OK . Token . sub]);
 
 iriPartMatcher = (=~ '[^\x00-\x20<>"{}|^`\\]'); //"
 
 iriref state =
    (sub matcher acc state =
-        case greedy matcher state of
-        OK (Token part):
-            if state.reader.next == "\\" and
-               state.reader.nextButOne =~ "[Uu]" then
-                unicodeEscape state ~>
-                   \case of
-                    Token u: sub matcher (acc ^ part ^ u) state;
-                    esac;
-            else
-                OK (Token (acc ^ part));
-            fi
-        esac;
+       (part = greedy matcher state;
+        if state.reader.next == "\\" and
+           state.reader.nextButOne =~ "[Uu]" then
+            unicodeEscape state ~>
+               \case of
+                Token u: sub matcher (acc ^ part ^ u) state;
+                esac;
+        else
+            OK (Token (acc ^ part));
+        fi);
     tokseq state [required "<",
                   sub iriPartMatcher "",
                   required ">"]);
@@ -351,12 +347,11 @@ datatype state =
 
 // [133s] BooleanLiteral ::= 'true' | 'false'
 booleanLiteral state =
-    greedy azMatcher state ~>
-       \case of 
-        Token  "true": OK (newBoolLiteral true);
-        Token "false": OK (newBoolLiteral false);
-        _: Error "Expected 'true' or 'false' at \(state.reader.location)";
-        esac;
+   (lit = greedy azMatcher state;
+    if lit == "true" then OK (newBoolLiteral true);
+    elif lit == "false" then OK (newBoolLiteral false);
+    else Error "Expected 'true' or 'false' at \(state.reader.location)";
+    fi);
 
 openQuote state =
    (r = state.reader;
@@ -452,20 +447,15 @@ numericalMatcher = (=~ "[0-9eE+-]");
 numAfterDotMatcher = (=~ "[0-9eE]");
 
 numericCandidate state =
-    greedy numericalMatcher state ~>
-       \case of
-        Token n:
-            if state.reader.next == "." and
-               numAfterDotMatcher state.reader.nextButOne then
-                state.reader.discard ();
-                greedy numericalMatcher state ~>
-                   \case of
-                    Token nn: OK (Token (n ^ "." ^ nn));
-                    esac;
-            else
-                OK (Token n);
-            fi;
-        esac;
+   (n = greedy numericalMatcher state;
+    if state.reader.next == "." and
+       numAfterDotMatcher state.reader.nextButOne then
+        state.reader.discard ();
+        nn = greedy numericalMatcher state;
+        OK (Token (n ^ "." ^ nn));
+    else
+        OK (Token n);
+    fi);
 
 // Adapt the Turtle numeric literal syntax into something that Yeti's
 // string to number conversion will like
