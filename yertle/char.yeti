@@ -2,28 +2,28 @@
 module yertle.char;
 
 reader handle =
-   (var nextChar = "";
-    var nextButOne = "";
-    var lineno = 1;
+   (var line = "";
+    var lineno = 0;
     var colno = 0;
     ws c = (strIndexOf "\n\t\r " c 0 >= 0);
     eol c = (c == "\n" or c == "\r");
-    reload () =
-       (nextChar := nextButOne;
-        nextButOne := handle.read 1;
-        if nextChar == "\n" then colno := 1; lineno := lineno + 1;
-        else colno := colno + 1;
-        fi);
-    reload ();
-    reload ();
+    loadLine () = (line := handle.readln (); colno := 0; lineno := lineno + 1);
+    charAt n =
+        if n >= strLength line then "\n"
+        else strChar line n
+        fi;
+    advance () =
+       (colno := colno + 1;
+        if colno > strLength line then loadLine () fi);
+    loadLine ();
     {
-        read () = (c = nextChar; reload (); c),
-        discard () = reload (),
-        get next () = nextChar,
-        get nextButOne () = nextButOne,
-        get isWhitespace () = ws nextChar,
-        get isEol () = eol nextChar,
-        get isEof () = not defined? nextChar,
+        get next () = charAt colno,
+        read () = (c = charAt colno; advance (); c),
+        discard () = advance (),
+        get nextButOne () = charAt (colno + 1),
+        get isWhitespace () = ws (charAt colno),
+        get isEol () = eol (charAt colno),
+        get isEof () = not defined? line,
         get location () = "line \(lineno), column \(colno)",
     });
 
