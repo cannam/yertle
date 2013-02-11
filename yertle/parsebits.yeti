@@ -21,9 +21,9 @@ required expected state =
        Error "Expected '\(expected)', found '\(state.reader.next)' at \(state.reader.location)";
     fi;
 
-greedy re state =
+greedy matcher state =
    (var tok = "";
-    state.reader.next =~ re loop tok := tok ^ (state.reader.read ());
+    matcher state.reader.next loop tok := tok ^ (state.reader.read ());
     OK (Token tok));
 
 // Given result a and function b, if a is an Error, return that

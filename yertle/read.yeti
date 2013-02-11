@@ -23,9 +23,12 @@ punctuation expected state =
 havePunctuation expected state =
    (chomp state; state.reader.next == expected);
 
+azMatcher   = (=~ "[a-z]");
+azAZMatcher = (=~ "[a-zA-Z]");
+
 langtag state =
    (sub state = 
-        case greedy "[a-zA-Z]" state of
+        case greedy azAZMatcher state of
         OK (Token tag):
             if state.reader.next == "-" then
                 tag ^ state.reader.read () ^ sub state
@@ -37,7 +40,7 @@ langtag state =
 
 iriref state =
     tokseq state [required "<",
-                  greedy "[^\\x00-\\x20<>\"{}|^`\\\\]", //!!! " or UCHAR
+                  greedy (=~ "[^\\x00-\\x20<>\"{}|^`\\\\]"), //!!! " or UCHAR
                   required ">"];
 
 // Regexes for prefix:local matching
@@ -293,7 +296,7 @@ datatype state =
 
 // [133s] BooleanLiteral ::= 'true' | 'false'
 booleanLiteral state =
-    greedy "[a-z]" state ~>
+    greedy azMatcher state ~>
        \case of 
         Token  "true": OK (newBoolLiteral true);
         Token "false": OK (newBoolLiteral false);
@@ -368,20 +371,22 @@ backslashEscape state =
        state.reader.discard ();
        res);
 
+shortStringMatcher quote = (=~ "[^\\x5c\\x0a\\x0d\(quote)]");
+
 shortStringBody quote state =
-   (sub state quote acc =
-        if state.reader.next =~ "[^\\x5c\\x0a\\x0d\(quote)]" then
-            sub state quote (acc ^ (state.reader.read ()));
+   (sub state matcher acc =
+        if matcher state.reader.next then
+            sub state matcher (acc ^ (state.reader.read ()));
         elif state.reader.next == "\\" then
             if state.reader.nextButOne =~ "[Uu]" then
                 unicodeEscape state ~>
                    \case of
-                    Token t: sub state quote (acc ^ t);
+                    Token t: sub state matcher (acc ^ t);
                     esac
             elif state.reader.nextButOne =~ "[tbnrf\"']" then
                 backslashEscape state ~>
                    \case of
-                    Token t: sub state quote (acc ^ t);
+                    Token t: sub state matcher (acc ^ t);
                     esac
             else 
                 OK (Token acc)
@@ -389,7 +394,7 @@ shortStringBody quote state =
         else
             OK (Token acc)
         fi;
-    sub state quote "" ~>
+    sub state (shortStringMatcher quote) "" ~>
        \case of
         Token text: required quote state ~> \(OK (Token text));
         esac);
@@ -405,7 +410,6 @@ stringBody state =
             longStringBody q state;
         esac;
 
-//!!! still does not handle escapes, \u etc
 rdfLiteral state =
     stringBody state ~>
        \case of
@@ -426,14 +430,17 @@ rdfLiteral state =
             esac;
         esac;
 
+numericalMatcher = (=~ "[0-9eE+-]");
+numAfterDotMatcher = (=~ "[0-9eE]");
+
 numericCandidate state =
-    greedy '[0-9eE+-]' state ~>
+    greedy numericalMatcher state ~>
        \case of
         Token n:
             if state.reader.next == "." and
-               state.reader.nextButOne =~ "[0-9Ee]" then
+               numAfterDotMatcher state.reader.nextButOne then
                 state.reader.discard ();
-                greedy '[0-9eE+-]' state ~>
+                greedy numericalMatcher state ~>
                    \case of
                     Token nn: OK (Token (n ^ "." ^ nn));
                     esac;
@@ -444,7 +451,7 @@ numericCandidate state =
 
 // Adapt the Turtle numeric literal syntax into something that Yeti's
 // string to number conversion will like
-javaNumberStringFor n =
+parseableNumber n =
     if strStarts? n "+" then
         if strStarts? n "+." then
             "0" ^ (strRight n 1)
@@ -466,7 +473,7 @@ numericLiteral state =
                        elif n =~ "\\." then "\(xsdPrefix)decimal"
                        else "\(xsdPrefix)integer"
                        fi;
-                num = number (javaNumberStringFor n);
+                num = number (parseableNumber n);
                 OK (Literal (newLiteral "\(num)" with { type }));
             esac;
     catch NumberFormatException _:
@@ -499,8 +506,11 @@ nonLiteralObject state =
     esac ~> (OK . Node);
 
 // [12] object ::= iri | blank | blankNodePropertyList | literal
+
+nonLiteralMatcher = (=~ "[_(\\[<:\(pnCharsBase)]");
+
 object state =
-    if state.reader.next =~ "[_(\\[<:\(pnCharsBase)]" then
+    if nonLiteralMatcher state.reader.next then
         nonLiteralObject state
     else
         literal state ~> (OK . Node)
@@ -559,7 +569,6 @@ predicateObjectList state =
     sub [] state);
 
 // blankNodePropertyList ::= '[' predicateObjectList ']'
-//!!! this currently allows an empty list, not permitted by spec -- check on ANON production though too
 blankNodePropertyList state =
     punctuation "[" state ~>
       \(predicateObjectList state ~>
