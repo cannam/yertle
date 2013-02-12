@@ -10,7 +10,9 @@ writeNode handle node =
     Blank b:
         handle.write "_:blank\(b)";
     Literal l:
-       (handle.write "\"\(l.value)\"";
+       (handle.write '"';
+        handle.write l.value;
+        handle.write '"';
         if l.language != "" then
             handle.write "@\(l.language)";
         elif l.type != "" then

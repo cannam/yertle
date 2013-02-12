@@ -66,7 +66,7 @@ likeIRIPart   = like "^[^\\x00-\\x20<>\"{}|^`\\\\]*";
 likeSlashU    = like "^\\\\[Uu]";
 
 likeShortString quote = like "^[^\\x5c\\x0a\\x0d\(quote)]*";
-likeShortStringEscape = like "^\\\\[tbnrf\\\\\"']";
+likeStringEscape = like "^\\\\[tbnrf\\\\\"']";
 
 likeNumber    = like "^[0-9eE+-]*";
 likeAfterDec  = like "^\\.[0-9eE]";
@@ -408,20 +408,33 @@ openQuote state =
     fi);
 
 longStringBody quote state =
-   (longStringBody' quote n acc r =
-        if r.next == quote then
-            if n == 2 then // this is the third quote in a row, ends the string
-                r.discard ();
+   (longStringBody' quote matcher n acc state =
+       (text = state.reader.readMatch matcher;
+        if state.reader.lookingAt likeSlashU then
+            unicodeEscape state ~>
+               \case of
+                Token t: longStringBody' quote matcher 0 (acc ^ text ^ t) state;
+                esac
+        elif state.reader.lookingAt likeStringEscape then
+            backslashEscape state ~>
+               \case of
+                Token t: longStringBody' quote matcher 0 (acc ^ text ^ t) state;
+                esac
+        elif state.reader.next == quote then
+            if text != "" then // have had text since last quote
+                longStringBody' quote matcher 0 (acc ^ text) state;
+            elif n == 2 then // third quote in a row, ends the string
+                state.reader.discard ();
                 OK (Token (strLeft acc (strLength acc - 2)));
             else
-                longStringBody' quote (n + 1) (acc ^ r.read ()) r
+                longStringBody' quote matcher (n + 1) (acc ^ state.reader.read ()) state
             fi
-        elif r.isEof then
+        elif state.reader.isEof then
             Error "End of file reached in long string"
         else
-            longStringBody' quote 0 (acc ^ r.read ()) r
-        fi;
-    longStringBody' quote 0 "" state.reader);
+            longStringBody' quote matcher 0 (acc ^ state.reader.read ()) state
+        fi);
+    longStringBody' quote (likeShortString quote) 0 "" state);
 
 shortStringBody quote state =
    (shortStringBody' matcher acc state =
@@ -429,12 +442,12 @@ shortStringBody quote state =
         if state.reader.lookingAt likeSlashU then
             unicodeEscape state ~>
                \case of
-                Token t: shortStringBody' matcher (text ^ acc ^ t) state;
+                Token t: shortStringBody' matcher (acc ^ text ^ t) state;
                 esac
-        elif state.reader.lookingAt likeShortStringEscape then
+        elif state.reader.lookingAt likeStringEscape then
             backslashEscape state ~>
                \case of
-                Token t: shortStringBody' matcher (text ^ acc ^ t) state;
+                Token t: shortStringBody' matcher (acc ^ text ^ t) state;
                 esac
         else 
             OK (Token (text ^ acc))
