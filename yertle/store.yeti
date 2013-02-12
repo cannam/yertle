@@ -3,8 +3,11 @@ module yertle.store;
 
 index = load yertle.index;
 
+typedef internode =
+    IRI number | Blank number | Literal { value is string, type is number, language is string };
+
 typedef fullnode =
-    IRI string | Blank number | Literal { value is string, type is string };
+    IRI string | Blank number | Literal { value is string, type is string, language is string };
 
 typedef statement = {
     s is IRI string | Blank number,
@@ -15,13 +18,13 @@ typedef statement = {
 typedef pattern = {
     s is Wildcard () | IRI string | Blank number,
     p is Wildcard () | IRI string,
-    o is Wildcard () | IRI string | Blank number | Literal { value is string, type is string },
+    o is Wildcard () | IRI string | Blank number | Literal { value is string, type is string, language is string },
 };
 
-typedef indextree = hash<fullnode,
-                         Sub hash<fullnode,
-                                  Sub hash<fullnode,
-                                           Entry hash<string, fullnode>>>>;
+typedef indextree = hash<internode,
+                         Sub hash<internode,
+                                  Sub hash<internode,
+                                           Entry hash<string, internode>>>>;
 
 typedef index = {
     order is list<string>, tree is indextree
@@ -31,11 +34,101 @@ typedef storetype = {
     indexes is list<index>,
 };
 
+interns = {
+   var n = 0,
+   forward is hash<string,number> = [:],
+   inverse is hash<number,string> = [:]
+};
+
+intern iri is string -> number =
+    synchronized interns do:
+        if iri in interns.forward then 
+            interns.forward[iri];
+        else 
+            interns.forward[iri] := interns.n;
+            interns.inverse[interns.n] := iri;
+            n = interns.n;
+            interns.n := interns.n + 1;
+            n;
+        fi;
+    done;
+
+unintern ii is number -> string = interns.inverse[ii];
+
 newStore () = {
     indexes = map do n: index.newIndex (tail (strSplit "" n)) done 
         [ "spo", "pos", "ops" ];
 };
+/*
+hashOfStatement t =
+   (h = [:];
+    kmap = [ (.s): "s", (.p): "p", (.o): "o" ];
+    for (keys kmap) do sel:
+        node = kmap[sel];
+        case sel t of
+        Wildcard _: ();
+        IRI iri: h[node] := IRI (intern iri);
+        Literal lit: h[node] := Literal { value = lit.value, type = intern lit.type, language = lit.language };
+        Blank b: h[node] := Blank b;
+        esac
+    done;
+    h);
+*/
 
+hashOfStatement t =
+   (h = [:];
+    case t.s of
+    IRI iri: h["s"] := IRI (intern iri);
+    Blank b: h["s"] := Blank b;
+    esac;
+    case t.p of
+    IRI iri: h["p"] := IRI (intern iri);
+    esac;
+    case t.o of
+    IRI iri: h["o"] := IRI (intern iri);
+    Blank b: h["o"] := Blank b;
+    Literal lit: h["o"] := Literal { value = lit.value, type = intern lit.type, language = lit.language };
+    esac;
+    h);
+
+hashOfPattern t =
+   (h = [:];
+    case t.s of
+    IRI iri: h["s"] := IRI (intern iri);
+    Blank b: h["s"] := Blank b;
+    Wildcard _: ();
+    esac;
+    case t.p of
+    IRI iri: h["p"] := IRI (intern iri);
+    Wildcard _: ();
+    esac;
+    case t.o of
+    IRI iri: h["o"] := IRI (intern iri);
+    Blank b: h["o"] := Blank b;
+    Literal lit: h["o"] := Literal { value = lit.value, type = intern lit.type, language = lit.language };
+    Wildcard _: ();
+    esac;
+    h);
+
+statementOfHash h =
+   (s = h["s"];
+    p = h["p"];
+    o = h["o"];
+    { s = case s of 
+          IRI n: IRI (unintern n);
+          Blank b: Blank b;
+          esac,
+      p = case p of
+          IRI n: IRI (unintern n);
+          esac,
+      o = case o of
+          IRI n: IRI (unintern n);
+          Blank b: Blank b;
+          Literal lit: Literal { value = lit.value, type = unintern lit.type, language = lit.language };
+          esac
+    });
+
+/*
 hashOfStatement t =
     [ "s": t.s, "p": t.p, "o": t.o ];
 
@@ -52,7 +145,7 @@ hashOfPattern pat =
         esac
     done;
     h);
-
+*/
 add st t =
    (h = hashOfStatement t;
     all id (map do ix: index.add ix h done st.indexes));

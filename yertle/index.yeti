@@ -45,7 +45,6 @@ remove ix stmt is index -> statement -> boolean =
     _: false;
     esac;
 
-//!!! how to make this lazy?
 enumerate' tree is 'a -> list<statement> =
     concat
        (map do k:
