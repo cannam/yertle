@@ -385,8 +385,8 @@ subject state =
     esac ~>
        \case of
         Literal _: Error "Literal not permitted as subject at \(state.reader.location)";
-        IRI iri: OK (Node (IRI iri));
-        Blank b: OK (Node (Blank b));
+        IRI iri: OK (IRI iri);
+        Blank b: OK (Blank b);
         esac;
 
 datatype state =
@@ -541,15 +541,15 @@ nonLiteralObject state =
     "(": collection state;
     "[": blankNodePropertyList' state;
       _: iri state;
-    esac ~> (OK . Node);
+    esac;
 
 // [12] object ::= iri | blank | blankNodePropertyList | literal
 
 object state =
     if matchNonLit state.reader.next then
-        nonLiteralObject state
+        nonLiteralObject state;
     else
-        literal state ~> (OK . Node)
+        literal state;
     fi;
 
 object' := object;
@@ -559,7 +559,7 @@ object' := object;
 objectList state =
    (chomp state;
     object state ~>
-       \case of Node obj:
+        do obj:
             if havePunctuation "," state then
                (state.reader.discard ();
                 objectList state ~>
@@ -569,7 +569,7 @@ objectList state =
             else
                 OK (Nodes [obj]);
             fi;
-        esac
+        done
     );
 
 // [7] predicateObjectList ::= 	verb objectList (';' (verb objectList)?)*
@@ -611,7 +611,7 @@ blankNodePropertyList state =
                (bnode = newBlankNode state;
                 emitWithSubject state bnode polist ~>
                    \(punctuation "]" state) ~>
-                       \(OK (Node bnode)));
+                       \(OK bnode));
             esac;
         );
 
@@ -623,12 +623,12 @@ blankNodePropertyList' := blankNodePropertyList;
 // Handles the blankNodePropertyList part of that alternation
 blankNodeTriples state = 
     blankNodePropertyList state ~> 
-       \case of Node subj:
+        do subj:
             predicateObjectList state ~>
                \case of POList polist:
                     emitWithSubject state subj polist;
                 esac
-        esac;
+        done;
 
 // [6] triples ::= subject predicateObjectList |
 //                 blankNodePropertyList predicateObjectList?
@@ -636,8 +636,7 @@ blankNodeTriples state =
 // Handles the subject part of that alternation
 subjectTriples state =
     subject state ~> 
-       \case of
-        Node subj:
+        do subj:
             predicateObjectList state ~>
                \case of
                 POList []:
@@ -645,7 +644,7 @@ subjectTriples state =
                 POList polist:
                     emitWithSubject state subj polist;
                 esac
-        esac;
+        done;
 
 triples state = 
     case state.reader.next of
