@@ -75,7 +75,7 @@ emit state triple =
     push state.pendingTriples triple;
 
 emitWithSubject state subject polist =
-   (for polist do po: emit state { s = subject, p = po.p, o = po.o } done;
+   (for polist do po: emit state [ "s": subject, "p": po.p, "o": po.o ] done;
     OK (Empty ()));
 
 azAZMatcher = like "^[a-zA-Z]*";
@@ -309,12 +309,12 @@ collection state =
     addObjects node state objects =
         case objects of
         obj::rest:
-           (emit state { s = node, p = rdfFirstIRI, o = obj };
+           (emit state [ "s": node, "p": rdfFirstIRI, "o": obj ];
             if empty? rest then
-                emit state { s = node, p = rdfRestIRI, o = rdfNilIRI };
+                emit state [ "s": node, "p": rdfRestIRI, "o": rdfNilIRI ];
             else
                 nextNode = newBlankNode state;
-                emit state { s = node, p = rdfRestIRI, o = nextNode };
+                emit state [ "s": node, "p": rdfRestIRI, "o": nextNode ];
                 addObjects nextNode state rest;
             fi);
         _: ();

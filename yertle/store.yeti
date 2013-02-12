@@ -3,28 +3,15 @@ module yertle.store;
 
 index = load yertle.index;
 
-typedef statement = {
-    s is IRI string | Blank number,
-    p is IRI string,
-    o is IRI string | Blank number | Literal { value is string, type is string },
-};
-
-typedef pattern = {
-    s is Wildcard () | IRI string | Blank number,
-    p is Wildcard () | IRI string,
-    o is Wildcard () | IRI string | Blank number | Literal { value is string, type is string },
-};
+typedef statement = hash<string, IRI string | Blank number | Literal { value is string, type is string }>;
 
 typedef store = {
-    indexes is list<{ order is list<'a>, tree is hash<'b, 'c> }>,
+    indexes is list<{ order is list<string>, tree is hash<'b, 'c> }>,
 };
 
 newStore () = {
-    indexes = [
-        index.newIndex [ (.s), (.p), (.o) ],
-        index.newIndex [ (.p), (.o), (.s) ],
-        index.newIndex [ (.o), (.p), (.s) ],
-    ];
+    indexes = map do n: index.newIndex (tail (strSplit "" n)) done 
+        [ "spo", "pos", "ops" ];
 };
 
 add st t is store -> statement -> boolean =
@@ -40,9 +27,12 @@ contains st t is store -> statement -> boolean =
     // Doesn't matter which index we use to look up a complete statement
     index.contains (head st.indexes) t;
 
-match st pat is store -> pattern -> list<statement> =
+match st pat is store -> statement -> list<statement> =
     index.match (index.chooseIndex st.indexes pat) pat;
 
-{ newStore, add, remove, enumerate, contains, match }
+triple a b c is 'a -> 'b -> 'c -> statement =
+    [ "s" : a, "p" : b, "o" : c ];
+
+{ newStore, add, remove, enumerate, contains, match, triple }
 
 
