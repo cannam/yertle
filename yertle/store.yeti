@@ -3,10 +3,32 @@ module yertle.store;
 
 index = load yertle.index;
 
-typedef statement = hash<string, IRI string | Blank number | Literal { value is string, type is string }>;
+typedef fullnode =
+    IRI string | Blank number | Literal { value is string, type is string };
 
-typedef store = {
-    indexes is list<{ order is list<string>, tree is hash<'b, 'c> }>,
+typedef statement = {
+    s is IRI string | Blank number,
+    p is IRI string,
+    o is fullnode,
+};
+
+typedef pattern = {
+    s is Wildcard () | IRI string | Blank number,
+    p is Wildcard () | IRI string,
+    o is Wildcard () | IRI string | Blank number | Literal { value is string, type is string },
+};
+
+typedef indextree = hash<fullnode,
+                         Sub hash<fullnode,
+                                  Sub hash<fullnode,
+                                           Entry hash<string, fullnode>>>>;
+
+typedef index = {
+    order is list<string>, tree is indextree
+};
+
+typedef storetype = {
+    indexes is list<index>,
 };
 
 newStore () = {
@@ -14,25 +36,53 @@ newStore () = {
         [ "spo", "pos", "ops" ];
 };
 
-add st t is store -> statement -> boolean =
-    all id (map do ix: index.add ix t done st.indexes);
+hashOfStatement t =
+    [ "s": t.s, "p": t.p, "o": t.o ];
 
-remove st t is store -> statement -> boolean = 
-    all id (map do ix: index.remove ix t done st.indexes);
+statementOfHash h =
+    { s = h["s"], p = h["p"], o = h["o"] };
 
-enumerate st is store -> list<'a> =
-    index.enumerate (head st.indexes);
+hashOfPattern pat =
+   (h = [:];
+    kmap = [ (.s): "s", (.p): "p", (.o): "o" ];
+    for (keys kmap) do sel:
+        case sel pat of
+        Wildcard _: ();
+        other: h[kmap[sel]] := other;
+        esac
+    done;
+    h);
 
-contains st t is store -> statement -> boolean = 
+add st t =
+   (h = hashOfStatement t;
+    all id (map do ix: index.add ix h done st.indexes));
+
+remove st t =
+   (h = hashOfStatement t;
+    all id (map do ix: index.remove ix h done st.indexes));
+
+enumerate st =
+    map statementOfHash (index.enumerate (head st.indexes));
+
+contains st t =
     // Doesn't matter which index we use to look up a complete statement
-    index.contains (head st.indexes) t;
+    index.contains (head st.indexes) (hashOfStatement t);
 
-match st pat is store -> statement -> list<statement> =
-    index.match (index.chooseIndex st.indexes pat) pat;
+match st pat =
+   (h = hashOfPattern pat;
+    map statementOfHash (index.match (index.chooseIndex st.indexes h) h));
 
-triple a b c is 'a -> 'b -> 'c -> statement =
-    [ "s" : a, "p" : b, "o" : c ];
+typedef opaque store = storetype;
 
-{ newStore, add, remove, enumerate, contains, match, triple }
+{ newStore, add, remove, enumerate, contains, match }
+as
+{
+newStore is () -> store,
+add is store -> statement -> boolean,
+remove is store -> statement -> boolean,
+enumerate is store -> list<statement>,
+contains is store -> statement -> boolean,
+match is store -> pattern -> list<statement>
+}
 
 

@@ -5,7 +5,7 @@ module test.test_store;
 
 { newStore, add, remove, enumerate, contains, match } = load yertle.store;
 
-triple a b c = [ "s" : IRI a, "p" : IRI b, "o" : IRI c ];
+triple a b c = { s = IRI a, p = IRI b, o = IRI c };
 
 testTriple n =
     case n of
@@ -19,13 +19,13 @@ testTriple n =
 
 testWildcard n =
     case n of
-    "***": [:];
-    "aa*": [ "s" : IRI "fred", "p" : IRI "loves" ];
-    "a**": [ "s" : IRI "fred" ];
-    "*a*": [ "p" : IRI "loves" ];
-    "a*a": [ "s" : IRI "fred", "o" : IRI "cheese" ];
-    "**a": [ "o" : IRI "cheese" ];
-    _: [:];
+    "***": { s = Wildcard (), p = Wildcard (), o = Wildcard () };
+    "aa*": { s = IRI "fred", p = IRI "loves", o = Wildcard () };
+    "a**": { s = IRI "fred", p = Wildcard (), o = Wildcard () };
+    "*a*": { s = Wildcard (), p = IRI "loves", o = Wildcard () };
+    "a*a": { s = IRI "fred", p = Wildcard (), o = IRI "cheese" };
+    "**a": { s = Wildcard (), p = Wildcard (), o = IRI "cheese" };
+    _: { s = Wildcard (), p = Wildcard (), o = Wildcard () };
     esac;
 
 [
