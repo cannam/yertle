@@ -3,3 +3,4 @@
     :censusYear 2007 ;              # xsd:integer
     :birthsPerPerson .0135 ;        # xsd:decimal
     :gdpDollars 14074.2E9 ;         # xsd:double
+.

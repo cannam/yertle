@@ -15,12 +15,26 @@ reader handle =
     advance () =
        (colno := colno + 1;
         if colno > strLength line then loadLine () fi);
+    lookingAt likeMatcher =
+        not empty? (likeMatcher (strRight line colno) ());
+    match likeMatcher =
+        case likeMatcher (strRight line colno) () of
+        [match]: match;
+        _: "";
+        esac;
+    readMatch likeMatcher =
+       (m = match likeMatcher;
+        colno := colno + strLength m;
+        if colno > strLength line then loadLine () fi;
+        m);
     loadLine ();
     {
         get next () = charAt colno,
         read () = (c = charAt colno; advance (); c),
         discard () = advance (),
-        get nextButOne () = charAt (colno + 1),
+        lookingAt,
+        match,
+        readMatch,
         get isWhitespace () = ws (charAt colno),
         get isEol () = eol (charAt colno),
         get isEof () = not defined? line,

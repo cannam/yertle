@@ -3,16 +3,16 @@ module yertle.store;
 
 index = load yertle.index;
 
-typedef triple = {
+typedef statement = {
     s is IRI string | Blank number,
     p is IRI string,
-    o is IRI string | Blank number | Literal { value is string, type is string, language is string },
+    o is IRI string | Blank number | Literal { value is string, type is string },
 };
 
 typedef pattern = {
     s is Wildcard () | IRI string | Blank number,
     p is Wildcard () | IRI string,
-    o is Wildcard () | IRI string | Blank number | Literal { value is string, type is string, language is string },
+    o is Wildcard () | IRI string | Blank number | Literal { value is string, type is string },
 };
 
 typedef store = {
@@ -27,20 +27,20 @@ newStore () = {
     ];
 };
 
-add st t is store -> triple -> boolean =
+add st t is store -> statement -> boolean =
     all id (map do ix: index.add ix t done st.indexes);
 
-remove st t is store -> triple -> boolean = 
+remove st t is store -> statement -> boolean = 
     all id (map do ix: index.remove ix t done st.indexes);
 
 enumerate st is store -> list<'a> =
     index.enumerate (head st.indexes);
 
-contains st t is store -> triple -> boolean = 
-    // Doesn't matter which index we use to look up a complete triple
+contains st t is store -> statement -> boolean = 
+    // Doesn't matter which index we use to look up a complete statement
     index.contains (head st.indexes) t;
 
-match st pat is store -> pattern -> list<triple> =
+match st pat is store -> pattern -> list<statement> =
     index.match (index.chooseIndex st.indexes pat) pat;
 
 { newStore, add, remove, enumerate, contains, match }

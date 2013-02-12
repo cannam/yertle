@@ -16,9 +16,6 @@ rdfFirstIRI = IRI "\(rdfPrefix)first";
 rdfRestIRI  = IRI "\(rdfPrefix)rest";
 rdfNilIRI   = IRI "\(rdfPrefix)nil";
 
-azMatcher   = (=~ "[a-z]");
-azAZMatcher = (=~ "[a-zA-Z]");
-
 // Regexes for prefix:local matching
 pnBaseRange = "A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD";
 pnCharsBase = "[\(pnBaseRange)]";
@@ -81,9 +78,11 @@ emitWithSubject state subject polist =
    (for polist do po: emit state { s = subject, p = po.p, o = po.o } done;
     OK (Empty ()));
 
+azAZMatcher = like "^[a-zA-Z]*";
+
 langtag state =
    (langtag' state = 
-       (tag = greedy azAZMatcher state;
+       (tag = state.reader.readMatch azAZMatcher;
         if state.reader.next == "-" then
             tag ^ state.reader.read () ^ langtag' state
         else
@@ -91,32 +90,29 @@ langtag state =
         fi);
     tokseq state [required "@", OK . Token . langtag']);
 
-iriPartMatcher = (=~ '[^\x00-\x20<>"{}|^`\\]'); //"
+iriPartMatcher = like '^[^\x00-\x20<>"{}|^`\\]*'; //"
+slashUMatcher = like '^\\[Uu]';
 
 iriref state =
-   (iriref' matcher acc state =
-       (part = greedy matcher state;
-        if state.reader.next == "\\" and
-           state.reader.nextButOne =~ "[Uu]" then
+   (iriref' acc state =
+       (part = state.reader.readMatch iriPartMatcher;
+        if state.reader.lookingAt slashUMatcher then
             unicodeEscape state ~>
                \case of
-                Token u: iriref' matcher (acc ^ part ^ u) state;
+                Token u: iriref' (acc ^ part ^ u) state;
                 esac;
         else
             OK (Token (acc ^ part));
         fi);
     tokseq state [required "<",
-                  iriref' iriPartMatcher "",
+                  iriref' "",
                   required ">"]);
 
 pnameCandidate state =
    (pnameCandidate' escaped acc r =
         if r.isWhitespace then
             OK (Token acc)
-        elif (r.next == '#' or r.next == "." or
-              r.next == ";" or r.next == "," or
-              r.next == ")" or r.next == "]") 
-             and not escaped then
+        elif strIndexOf "#.;,)]" r.next 0 >= 0 and not escaped then
             OK (Token acc)
         else
             escaped = (r.next == '\');
@@ -141,7 +137,15 @@ pnameNS state =
                 Error "Expected ':' at end of prefix before \(state.reader.location)"
             fi
         esac;
-                   
+               
+base state = 
+    tokseq state [ whitespace, iriref, punctuation "." ] ~>
+       \case of
+        Token iri: 
+            state.base := iri;
+            OK (Empty ());
+        esac;
+                    
 prefix state =
     tokseq state [ whitespace, pnameNS ] ~>
        \case of Token pname:
@@ -151,40 +155,57 @@ prefix state =
                     OK (Empty ());
                 esac;
         esac;
-               
-base state = 
-    tokseq state [whitespace, iriref, punctuation "."] ~>
+       
+sparqlBase state =
+    pnameCandidate state ~>
        \case of
-        Token iri: 
-            state.base := iri;
-            OK (Empty ());
+        Token t:
+            if (strLower t) == "base" then
+                tokseq state [ whitespace, iriref ] ~>
+                   \case of
+                    Token iri: 
+                        state.base := iri;
+                        OK (Empty ());
+                    esac;
+            else
+                Error "Expected BASE at \(state.reader.location)";
+            fi
         esac;
 
 sparqlPrefix state =
-    tokseq state [ whitespace, pnameNS ] ~>
-       \case of Token pname:
-            tokseq state [whitespace, iriref] ~>
-               \case of Token iri:
-                    state.namespaces[pname] := iri;
-                    OK (Empty ());
-                esac;
-        esac;
-        
-sparqlBase state =
-    tokseq state [whitespace, iriref] ~>
+    pnameCandidate state ~>
        \case of
-        Token iri: 
-            state.base := iri;
-            OK (Empty ());
+        Token t:
+            if (strLower t) == "prefix" then
+                tokseq state [ whitespace, pnameNS ] ~>
+                   \case of
+                    Token pname:
+                        tokseq state [ whitespace, iriref ] ~>
+                           \case of
+                            Token iri: 
+                                state.namespaces[pname] := iri;
+                                OK (Empty ());
+                            esac;
+                    esac;
+            else
+                Error "Expected PREFIX at \(state.reader.location)";
+            fi
         esac;
 
 directive state =
-    langtag state ~>
-       \case of
-        Token "prefix": prefix state;
-        Token "base": base state;
-        Token t: Error "Expected prefix or base, found '\(t)'";
-        esac;
+    case state.reader.next of
+    "@": langtag state ~>
+            \case of
+             Token "prefix": prefix state;
+             Token "base": base state;
+             Token t: Error "Expected base or prefix, found '\(t)' at \(state.reader.location)";
+             esac;
+    "B": sparqlBase state;
+    "b": sparqlBase state;
+    "P": sparqlPrefix state;
+    "p": sparqlPrefix state;
+      _: Error "Expected @base, @prefix, BASE, or PREFIX at \(state.reader.location)";
+    esac;
 
 booleanType =
     "\(xsdPrefix)boolean";
@@ -228,19 +249,14 @@ prefixExpanded state text =
     _: Error "Malformed prefixed name '\(text)' at \(state.reader.location)";
     esac;
 
-sparqlBaseMatcher = (=~ "^[Bb][Aa][Ss][Ee]$");
-sparqlPrefixMatcher = (=~ "^[Pp][Rr][Ee][Ff][Ii][Xx]$");
-
 prefixedName state =
     pnameCandidate state ~>
        \case of
         // We can't tell the difference, until we get here, between a
-        // prefixed name and the bare keywords true, false, base, or prefix
+        // prefixed name and the bare keywords true or false
         Token t:
             if t == "true" then OK (newBoolLiteral true);
             elif t == "false" then OK (newBoolLiteral false);
-            elif sparqlBaseMatcher t then OK (BaseLabel ());
-            elif sparqlPrefixMatcher t then OK (PrefixLabel ());
             else prefixExpanded state t;
             fi;
         esac;
@@ -261,11 +277,13 @@ blankNodeFor state b =
     fi;
     state.bnodeLabels[b]);
 
+blankMatcher = (=~ "^\(bnode)$");
+
 blank state =
     tokseq state [required '_', required ':', pnameCandidate] ~>
        \case of
         Token b:
-            if b =~ "^\(bnode)$" then
+            if blankMatcher b then
                 OK (blankNodeFor state b)
             else
                 Error "Malformed blank node label '\(b)' at \(state.reader.location)";
@@ -336,18 +354,19 @@ subject state =
       _: iri state;
     esac ~>
        \case of
-        BaseLabel (): OK (BaseLabel ());
-        PrefixLabel (): OK (PrefixLabel ());
         Literal _: Error "Literal not permitted as subject at \(state.reader.location)";
-        other: OK (Node other);
+        IRI iri: OK (Node (IRI iri));
+        Blank b: OK (Node (Blank b));
         esac;
 
 datatype state =
     required "^" state ~> \(required "^" state) ~> \(iri state);
 
+azMatcher = like "^[a-z]*";
+
 // [133s] BooleanLiteral ::= 'true' | 'false'
 booleanLiteral state =
-   (lit = greedy azMatcher state;
+   (lit = state.reader.readMatch azMatcher;
     if lit == "true" then OK (newBoolLiteral true);
     elif lit == "false" then OK (newBoolLiteral false);
     else Error "Expected 'true' or 'false' at \(state.reader.location)";
@@ -387,29 +406,25 @@ longStringBody quote state =
         fi;
     longStringBody' quote 0 "" state.reader);
 
-shortStringMatcher quote = (=~ "[^\\x5c\\x0a\\x0d\(quote)]");
+shortStringMatcher quote = like "^[^\\x5c\\x0a\\x0d\(quote)]*";
+shortStringEscMatcher = like "^\\\\[tbnrf\\\\\"']";
 
 shortStringBody quote state =
    (shortStringBody' matcher acc state =
-        if matcher state.reader.next then
-            shortStringBody' matcher (acc ^ (state.reader.read ())) state;
-        elif state.reader.next == "\\" then
-            if state.reader.nextButOne =~ "[Uu]" then
-                unicodeEscape state ~>
-                   \case of
-                    Token t: shortStringBody' matcher (acc ^ t) state;
-                    esac
-            elif state.reader.nextButOne =~ "[tbnrf\\\\\"']" then
-                backslashEscape state ~>
-                   \case of
-                    Token t: shortStringBody' matcher (acc ^ t) state;
-                    esac
-            else 
-                OK (Token acc)
-            fi
-        else
-            OK (Token acc)
-        fi;
+       (text = state.reader.readMatch matcher;
+        if state.reader.lookingAt slashUMatcher then
+            unicodeEscape state ~>
+               \case of
+                Token t: shortStringBody' matcher (text ^ acc ^ t) state;
+                esac
+        elif state.reader.lookingAt shortStringEscMatcher then
+            backslashEscape state ~>
+               \case of
+                Token t: shortStringBody' matcher (text ^ acc ^ t) state;
+                esac
+        else 
+            OK (Token (text ^ acc))
+        fi);
     tokseq state [ shortStringBody' (shortStringMatcher quote) "", required quote ]);
 
 stringBody state =
@@ -443,15 +458,14 @@ rdfLiteral state =
             esac;
         esac;
 
-numericalMatcher = (=~ "[0-9eE+-]");
-numAfterDotMatcher = (=~ "[0-9eE]");
+numericalMatcher = like '^[0-9eE+-]*';
+numAfterDotMatcher = like '^\.[0-9eE]';
 
 numericCandidate state =
-   (n = greedy numericalMatcher state;
-    if state.reader.next == "." and
-       numAfterDotMatcher state.reader.nextButOne then
+   (n = state.reader.readMatch numericalMatcher;
+    if state.reader.lookingAt numAfterDotMatcher then
         state.reader.discard ();
-        nn = greedy numericalMatcher state;
+        nn = state.reader.readMatch numericalMatcher;
         OK (Token (n ^ "." ^ nn));
     else
         OK (Token n);
@@ -466,13 +480,15 @@ parseableNumber n =
     else n
     fi;
 
+eMatcher = (=~ "[Ee]");
+
 numericLiteral state =
     try
         numericCandidate state ~> 
            \case of
             Token n:
-                type = if n =~ "[Ee]" then "\(xsdPrefix)double"
-                       elif n =~ "\\." then "\(xsdPrefix)decimal"
+                type = if eMatcher n then "\(xsdPrefix)double"
+                       elif strIndexOf n "." 0 >= 0 then "\(xsdPrefix)decimal"
                        else "\(xsdPrefix)integer"
                        fi;
                 num = number (parseableNumber n);
@@ -608,10 +624,6 @@ subjectTriples state =
                 POList polist:
                     emitWithSubject state subj polist;
                 esac ~> \(punctuation "." state);
-        BaseLabel ():
-            sparqlBase state ~> \(OK (Empty ()));
-        PrefixLabel ():
-            sparqlPrefix state ~> \(OK (Empty ()));
         esac;
 
 triples state = 
@@ -620,15 +632,20 @@ triples state =
       _: subjectTriples state;
     esac;
 
+sparqlBaseMatcher = like "^[Bb][Aa][Ss][Ee][ \t]";
+sparqlPrefixMatcher = like "^[Pp][Rr][Ee][Ff][Ii][Xx][ \t]";
+
 // [2] statement ::= directive | triples '.'
 statement state =
    (chomp state;
     if state.reader.isEof then End ()
+    elif state.reader.next == "@" then
+        directive state;
+    elif state.reader.lookingAt sparqlBaseMatcher or
+         state.reader.lookingAt sparqlPrefixMatcher then
+        directive state;
     else
-        case state.reader.next of
-        "@": directive state;
-          _: triples state;
-        esac;
+        triples state;
     fi);
 
 document state =

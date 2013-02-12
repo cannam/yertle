@@ -21,11 +21,6 @@ required expected state =
        Error "Expected '\(expected)', found '\(state.reader.next)' at \(state.reader.location)";
     fi;
 
-greedy matcher state =
-   (var tok = "";
-    matcher state.reader.next loop tok := tok ^ (state.reader.read ());
-    tok);
-
 // Given result a and function b, if a is an Error, return that
 // error; if a is an OK, pass its value to b and return that
 (~>) a b =
@@ -53,5 +48,5 @@ tokseq state seq =
         esac;
     tokseq' (Error "No token found at \(state.reader.location)") state seq);
 
-{ whitespace, chomp, required, greedy, ~>, noseq, tokseq }
+{ whitespace, chomp, required, ~>, noseq, tokseq }
 
