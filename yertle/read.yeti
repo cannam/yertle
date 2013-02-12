@@ -16,17 +16,47 @@ rdfFirstIRI = IRI "\(rdfPrefix)first";
 rdfRestIRI  = IRI "\(rdfPrefix)rest";
 rdfNilIRI   = IRI "\(rdfPrefix)nil";
 
-// Regexes for prefix:local matching
-pnBaseRange = "A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD";
-pnCharsBase = "[\(pnBaseRange)]";
-pnCharsU    = "[\(pnBaseRange)_]";
-pnChars     = "[\(pnBaseRange)_0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040-]";
-pnPrefix    = "\(pnCharsBase)(?:(?:\(pnChars)|\\.)*\(pnChars))?";
-bnode       = "(?:\(pnCharsU)|[0-9])(?:(?:\(pnChars)|\\.)*(?:\(pnChars)))?";
-percent     = "(?:%[0-9A-Fa-f][0-9A-Fa-f])";
-pnLocalEsc  = "(?:\\\\[_~.!$&'()*+,;=/?#@%-])";
-plx         = "\(percent)|\(pnLocalEsc)";
-pnLocal     = "(?:(?:\(pnCharsU)|[0-9:]|\(plx))(?:(?:\(pnChars)|\\.|:|\(plx))*(?:\(pnChars)|:|\(plx)))?)?";
+rangePNBase   = "A-Za-z\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF" ^
+                "\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D" ^
+                "\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF" ^
+                "\\uF900-\\uFDCF\\uFDF0-\\uFFFD";
+
+rePNCharsBase = "[\(rangePNBase)]";
+rePNCharsU    = "[\(rangePNBase)_]";
+rePNChars     = "[\(rangePNBase)_0-9\\u00B7\\u0300-\\u036F\\u203F-\\u2040-]";
+rePNPrefix    = "\(rePNCharsBase)" ^
+                "(?:(?:\(rePNChars)|\\.)*" ^
+                "\(rePNChars))?";
+reBlank       = "(?:\(rePNCharsU)|[0-9])" ^
+                "(?:(?:\(rePNChars)|\\.)*" ^
+                "(?:\(rePNChars)))?";
+rePercent     = "(?:%[0-9A-Fa-f][0-9A-Fa-f])";
+rePNLocalEsc  = "(?:\\\\[_~.!$&'()*+,;=/?#@%-])";
+rePlx         = "\(rePercent)|\(rePNLocalEsc)";
+rePNLocal     = "(?:(?:\(rePNCharsU)|[0-9:]|\(rePlx))" ^
+                "(?:(?:\(rePNChars)|\\.|:|\(rePlx))*" ^
+                "(?:\(rePNChars)|:|\(rePlx)))?)?";
+
+likeAZ        = like "^[a-zA-Z]*";
+likeAZLower   = like "^[a-z]*";
+likeIRIPart   = like "^[^\\x00-\\x20<>\"{}|^`\\\\]*";
+likeSlashU    = like "^\\\\[Uu]";
+
+likeShortString quote = like "^[^\\x5c\\x0a\\x0d\(quote)]*";
+likeShortStringEscape = like "^\\\\[tbnrf\\\\\"']";
+
+likeNumber    = like "^[0-9eE+-]*";
+likeAfterDec  = like "^\\.[0-9eE]";
+
+matchE        = (=~ "[Ee]");
+matchPNPrefix = (=~ "^\(rePNPrefix)$");
+matchBlank    = (=~ "^\(reBlank)$");
+matchNonLit   = (=~ "[_(\\[<:\(rePNCharsBase)]");
+
+matchAllPName = matchAll "^(\(rePNPrefix))?:(\(rePNLocal))$" M T;
+
+likeSparqlBase = like "^[Bb][Aa][Ss][Ee][ \t]";
+likeSparqlPfx = like "^[Pp][Rr][Ee][Ff][Ii][Xx][ \t]";
 
 newLiteral string = { value = string, type = "", language = "" };
 
@@ -78,11 +108,9 @@ emitWithSubject state subject polist =
    (for polist do po: emit state { s = subject, p = po.p, o = po.o } done;
     OK (Empty ()));
 
-azAZMatcher = like "^[a-zA-Z]*";
-
 langtag state =
    (langtag' state = 
-       (tag = state.reader.readMatch azAZMatcher;
+       (tag = state.reader.readMatch likeAZ;
         if state.reader.next == "-" then
             tag ^ state.reader.read () ^ langtag' state
         else
@@ -90,13 +118,10 @@ langtag state =
         fi);
     tokseq state [required "@", OK . Token . langtag']);
 
-iriPartMatcher = like '^[^\x00-\x20<>"{}|^`\\]*'; //"
-slashUMatcher = like '^\\[Uu]';
-
 iriref state =
    (iriref' acc state =
-       (part = state.reader.readMatch iriPartMatcher;
-        if state.reader.lookingAt slashUMatcher then
+       (part = state.reader.readMatch likeIRIPart;
+        if state.reader.lookingAt likeSlashU then
             unicodeEscape state ~>
                \case of
                 Token u: iriref' (acc ^ part ^ u) state;
@@ -120,15 +145,13 @@ pnameCandidate state =
         fi;
     pnameCandidate' false "" state.reader);
 
-pnPrefixMatcher = (=~ "^\(pnPrefix)$");
-
 pnameNS state =
     pnameCandidate state ~>
        \case of
         Token t:
             if strEnds? t ":" then
                 pfx = strLeft t ((strLength t) - 1);
-                if pfx == "" or pnPrefixMatcher pfx then
+                if pfx == "" or matchPNPrefix pfx then
                     OK (Token pfx)
                 else
                     Error "Malformed prefix '\(pfx)' at \(state.reader.location)"
@@ -213,33 +236,30 @@ booleanType =
 newBoolLiteral b =
     Literal (newLiteral (if b then "true" else "false" fi) with { type = booleanType });
 
-matchPrefixedName =
-    matchAll "^(\(pnPrefix))?:(\(pnLocal))$" M T;
-
 // Assumes local is known to match the pname local escapes patterns
 // (i.e. if it has any escapes, they will have enough characters in
 // the escaped data)
-expandPNLocalEscapes local =
-   (expandPNLocalEscapes' acc local =
+unescapeLocal local =
+   (unescapeLocal' acc local =
         if local == "" then acc
         elif strStarts? local "%" then
             hex = "0x\(strSlice local 1 3)";
-            expandPNLocalEscapes' (acc ^ (strJoin "" Character#toChars(number hex)))
+            unescapeLocal' (acc ^ (strJoin "" Character#toChars(number hex)))
                 (strRight local 3);
         elif strStarts? local "\\" then
             //!!! Not implemented yet
-            expandPNLocalEscapes' (acc ^ strLeft local 1) (strRight local 1);
+            unescapeLocal' (acc ^ strLeft local 1) (strRight local 1);
         else
-            expandPNLocalEscapes' (acc ^ strLeft local 1) (strRight local 1);
+            unescapeLocal' (acc ^ strLeft local 1) (strRight local 1);
         fi;
-    expandPNLocalEscapes' "" local);
+    unescapeLocal' "" local);
 
 prefixExpanded state text =
-    case matchPrefixedName text of
+    case matchAllPName text of
     [M [whole, prefix, local]]:
         if prefix in state.namespaces then
             try
-                OK (IRI (state.namespaces[prefix] ^ expandPNLocalEscapes local));
+                OK (IRI (state.namespaces[prefix] ^ unescapeLocal local));
             catch NumberFormatException _:
                 Error "Malformed escape in local name '\(local)' before \(state.reader.location)";
             yrt
@@ -277,13 +297,11 @@ blankNodeFor state b =
     fi;
     state.bnodeLabels[b]);
 
-blankMatcher = (=~ "^\(bnode)$");
-
 blank state =
     tokseq state [required '_', required ':', pnameCandidate] ~>
        \case of
         Token b:
-            if blankMatcher b then
+            if matchBlank b then
                 OK (blankNodeFor state b)
             else
                 Error "Malformed blank node label '\(b)' at \(state.reader.location)";
@@ -362,11 +380,9 @@ subject state =
 datatype state =
     required "^" state ~> \(required "^" state) ~> \(iri state);
 
-azMatcher = like "^[a-z]*";
-
 // [133s] BooleanLiteral ::= 'true' | 'false'
 booleanLiteral state =
-   (lit = state.reader.readMatch azMatcher;
+   (lit = state.reader.readMatch likeAZLower;
     if lit == "true" then OK (newBoolLiteral true);
     elif lit == "false" then OK (newBoolLiteral false);
     else Error "Expected 'true' or 'false' at \(state.reader.location)";
@@ -406,18 +422,15 @@ longStringBody quote state =
         fi;
     longStringBody' quote 0 "" state.reader);
 
-shortStringMatcher quote = like "^[^\\x5c\\x0a\\x0d\(quote)]*";
-shortStringEscMatcher = like "^\\\\[tbnrf\\\\\"']";
-
 shortStringBody quote state =
    (shortStringBody' matcher acc state =
        (text = state.reader.readMatch matcher;
-        if state.reader.lookingAt slashUMatcher then
+        if state.reader.lookingAt likeSlashU then
             unicodeEscape state ~>
                \case of
                 Token t: shortStringBody' matcher (text ^ acc ^ t) state;
                 esac
-        elif state.reader.lookingAt shortStringEscMatcher then
+        elif state.reader.lookingAt likeShortStringEscape then
             backslashEscape state ~>
                \case of
                 Token t: shortStringBody' matcher (text ^ acc ^ t) state;
@@ -425,7 +438,7 @@ shortStringBody quote state =
         else 
             OK (Token (text ^ acc))
         fi);
-    tokseq state [ shortStringBody' (shortStringMatcher quote) "", required quote ]);
+    tokseq state [ shortStringBody' (likeShortString quote) "", required quote ]);
 
 stringBody state =
     openQuote state ~>
@@ -458,14 +471,11 @@ rdfLiteral state =
             esac;
         esac;
 
-numericalMatcher = like '^[0-9eE+-]*';
-numAfterDotMatcher = like '^\.[0-9eE]';
-
 numericCandidate state =
-   (n = state.reader.readMatch numericalMatcher;
-    if state.reader.lookingAt numAfterDotMatcher then
+   (n = state.reader.readMatch likeNumber;
+    if state.reader.lookingAt likeAfterDec then
         state.reader.discard ();
-        nn = state.reader.readMatch numericalMatcher;
+        nn = state.reader.readMatch likeNumber;
         OK (Token (n ^ "." ^ nn));
     else
         OK (Token n);
@@ -480,14 +490,12 @@ parseableNumber n =
     else n
     fi;
 
-eMatcher = (=~ "[Ee]");
-
 numericLiteral state =
     try
         numericCandidate state ~> 
            \case of
             Token n:
-                type = if eMatcher n then "\(xsdPrefix)double"
+                type = if matchE n then "\(xsdPrefix)double"
                        elif strIndexOf n "." 0 >= 0 then "\(xsdPrefix)decimal"
                        else "\(xsdPrefix)integer"
                        fi;
@@ -525,10 +533,8 @@ nonLiteralObject state =
 
 // [12] object ::= iri | blank | blankNodePropertyList | literal
 
-nonLiteralMatcher = (=~ "[_(\\[<:\(pnCharsBase)]");
-
 object state =
-    if nonLiteralMatcher state.reader.next then
+    if matchNonLit state.reader.next then
         nonLiteralObject state
     else
         literal state ~> (OK . Node)
@@ -632,17 +638,14 @@ triples state =
       _: subjectTriples state;
     esac;
 
-sparqlBaseMatcher = like "^[Bb][Aa][Ss][Ee][ \t]";
-sparqlPrefixMatcher = like "^[Pp][Rr][Ee][Ff][Ii][Xx][ \t]";
-
 // [2] statement ::= directive | triples '.'
 statement state =
    (chomp state;
     if state.reader.isEof then End ()
     elif state.reader.next == "@" then
         directive state;
-    elif state.reader.lookingAt sparqlBaseMatcher or
-         state.reader.lookingAt sparqlPrefixMatcher then
+    elif state.reader.lookingAt likeSparqlBase or
+         state.reader.lookingAt likeSparqlPfx then
         directive state;
     else
         triples state;
