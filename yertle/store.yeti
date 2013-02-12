@@ -4,7 +4,7 @@ module yertle.store;
 index = load yertle.index;
 
 typedef fullnode =
-    IRI string | Blank number | Literal { value is string, type is string };
+    IRI string | Blank number | Literal { value is string, type is string, language is string };
 
 typedef statement = {
     s is IRI string | Blank number,
@@ -15,7 +15,7 @@ typedef statement = {
 typedef pattern = {
     s is Wildcard () | IRI string | Blank number,
     p is Wildcard () | IRI string,
-    o is Wildcard () | IRI string | Blank number | Literal { value is string, type is string },
+    o is Wildcard () | IRI string | Blank number | Literal { value is string, type is string, language is string },
 };
 
 typedef indextree = hash<fullnode,

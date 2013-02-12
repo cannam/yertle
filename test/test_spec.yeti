@@ -5,31 +5,40 @@ module test.test_spec;
 
 { newStore, enumerate, contains, match } = load yertle.store;
 { loadTurtleFile, parseTurtleFile } = load yertle.read;
+{ writeNTriplesToHandle } = load yertle.write;
 
 testFileDir = "test/ttl/spec";
+outFileDir = "test/out";
 
 manifest = loadTurtleFile (testFileDir ^ "/manifest.ttl");
 
 tests = [:];
 
-metadata store iri =
-   (comments = match store { s = iri,
-                             p = IRI "http://www.w3.org/2000/01/rdf-schema#comment",
-                             o = Wildcard () };
-    actions  = match store { s = iri,
-                             p = IRI "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#action",
-                             o = Wildcard () };
+firstResultObjectText results =
+    case results of
+    [r]:
+        case r.o of 
+        Literal lit: lit.value;
+        IRI iri: iri;
+        _: "";
+        esac;
+     _: "";
+    esac;
+
+metadata mstore iri =
+   (comments = match mstore { s = iri,
+                              p = IRI "http://www.w3.org/2000/01/rdf-schema#comment",
+                              o = Wildcard () };
+    actions  = match mstore { s = iri,
+                              p = IRI "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#action",
+                              o = Wildcard () };
+    results  = match mstore { s = iri,
+                              p = IRI "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#result",
+                              o = Wildcard () };
     {
-        name = 
-            case (head comments).o of
-            Literal lit: lit.value;
-            _: "";
-            esac,
-        action =
-            case (head actions).o of
-            IRI ai: ai;
-            _: "";
-            esac
+        name = firstResultObjectText comments,
+        action = firstResultObjectText actions,
+        result = firstResultObjectText results,
     });
 
 checkParse isPositive filename =
@@ -43,38 +52,83 @@ checkParse isPositive filename =
         not empty? err
     fi);
 
-addTest store isPositive p =
+compareNTriples a b =
+   (ah = openInFile a "UTF-8";
+    bh = openInFile b "UTF-8";
+    rewrite = map (substAll "_:(blank|genid)[0-9]*" "{blanknode}");
+    atext = sort (rewrite (ah.lines ()));
+    btext = sort (rewrite (bh.lines ()));
+    ah.close ();
+    bh.close ();
+    if atext == btext then true
+    else
+        println "\n** Error: \"\(a)\" differs from expected \"\(b)\"";
+        println "   First differing line (expected result first):";
+        diff = head (find do p: p.fst != p.snd done (map2 pair btext atext));
+        println "1. \(diff.fst)";
+        println "2. \(diff.snd)";
+        false;
+    fi);
+
+addTest mstore type p =
    (iri = p.s;
-    meta = metadata store iri;
+    meta = metadata mstore iri;
     if meta.name == "" or meta.action == "" then
         println "Error: Unable to retrieve test metadata for test: \(iri)";
     else
-        tests[meta.name] := \(
-            try checkParse isPositive (testFileDir ^ "/" ^ meta.action)
+        func = case type of
+        Positive (): checkParse true;
+        Negative (): checkParse false;
+        Evaluation ():
+            do filename:
+                checkParse true filename and
+                   (fstore =
+                        case loadTurtleFile filename of
+                        Store s: s;
+                        Error e: println "Error: \(e)"; newStore ();
+                        esac;
+                    outfile = outFileDir ^ "/" ^ meta.result;
+                    handle = openOutFile outfile "UTF-8";
+                    writeNTriplesToHandle handle fstore;
+                    handle.close ();
+                    compareNTriples outfile (testFileDir ^ "/" ^ meta.result))
+            done;
+        esac;
+        tests[meta.name] :=
+          \(try func (testFileDir ^ "/" ^ meta.action);
             catch Exception e: e#printStackTrace(); false;
-            yrt;
-        );
+            yrt);
     fi);
 
 case manifest of
     Error e:
         println "Error: \(e)";
         tests["manifest load failed"] := \(false);
-    Store store:
-       (if length (enumerate store) < 10 then
+    Store mstore:
+       (if length (enumerate mstore) < 10 then
             tests["too few tests in manifest: expected 10 or more"] := \(false);
         fi;
     //!!! store should be able to expand prefixes; if store came from loadFile, it should have prefixes loaded too
-        for (match store { s = Wildcard (),
-                           p = IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-                           o = IRI "http://www.w3.org/ns/rdftest#TestTurtlePositiveSyntax"
+        for (match mstore { s = Wildcard (),
+                            p = IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                            o = IRI "http://www.w3.org/ns/rdftest#TestTurtlePositiveSyntax"
                          })
-            (addTest store true);
-        for (match store { s = Wildcard (),
-                           p = IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-                           o = IRI "http://www.w3.org/ns/rdftest#TestTurtleNegativeSyntax"
+            (addTest mstore (Positive ()));
+        for (match mstore { s = Wildcard (),
+                            p = IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                            o = IRI "http://www.w3.org/ns/rdftest#TestTurtleNegativeSyntax"
                          })
-            (addTest store false);
+            (addTest mstore (Negative ()));
+        for (match mstore { s = Wildcard (),
+                            p = IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                            o = IRI "http://www.w3.org/ns/rdftest#TestTurtleEval"
+                         })
+            (addTest mstore (Evaluation ()));
+        for (match mstore { s = Wildcard (),
+                            p = IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+                            o = IRI "http://www.w3.org/ns/rdftest#TestTurtleNegativeEval"
+                         })
+            (addTest mstore (Negative ()));
         );
 esac;
 

@@ -3,7 +3,7 @@ module yertle.write;
 
 store = load yertle.store;
 
-writeNTriplesNode handle node =
+writeNode handle node =
     case node of
     IRI u:
         handle.write "<\(u)>";
@@ -21,7 +21,7 @@ writeNTriplesNode handle node =
 
 writeNTriplesToHandle handle st =
     for (store.enumerate st) do t:
-        for [ .s, .p, .o ] do sel:
+        for [ (.s), (.p), (.o) ] do sel:
             writeNode handle (sel t);
             handle.write " ";
         done;
