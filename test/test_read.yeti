@@ -4,14 +4,14 @@ module test.test_read;
 { compare, compareUnordered } = load test.test;
 
 { newStore, enumerate, contains, match } = load yertle.store;
-{ loadFile, parseFile } = load yertle.read;
+{ loadTurtleFile, parseTurtleFile } = load yertle.read;
 
 testFileDir = "test/ttl";
 
 checkParse filename =
    (err =
         find \case of Error e: true; _: false esac
-           (parseFile filename);
+           (parseTurtleFile filename);
     if empty? err then true
     else println "\n** In parsing \(filename):\n   \(head err)"; false
     fi);

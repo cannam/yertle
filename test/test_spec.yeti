@@ -4,11 +4,11 @@ module test.test_spec;
 { compare, compareUnordered } = load test.test;
 
 { newStore, enumerate, contains, match } = load yertle.store;
-{ loadFile, parseFile } = load yertle.read;
+{ loadTurtleFile, parseTurtleFile } = load yertle.read;
 
 testFileDir = "test/ttl/spec";
 
-manifest = loadFile (testFileDir ^ "/manifest.ttl");
+manifest = loadTurtleFile (testFileDir ^ "/manifest.ttl");
 
 tests = [:];
 
@@ -35,7 +35,7 @@ metadata store iri =
 checkParse isPositive filename =
    (err =
         find \case of Error e: true; _: false esac
-           (parseFile filename);
+           (parseTurtleFile filename);
     if isPositive then
         if empty? err then true
         else println "\n** In parsing \(filename):\n   \(head err)"; false fi

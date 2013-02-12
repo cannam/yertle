@@ -708,14 +708,14 @@ newState reader =
 parse reader =
     flattened (document (newState reader)) [];
 
-parseHandle handle = 
+parseTurtleHandle handle = 
     parse (char.reader handle);
 
-parseFile filename = 
+parseTurtleFile filename = 
     parse (char.reader (openInFile filename "UTF-8")); // Turtle is always utf8
 
 //!!! load to new store. loading into an existing store depends on proper global handling of blank nodes, which is still pending
-loadFile filename = 
+loadTurtleFile filename = 
    (st = store.newStore ();
     fold
         do acc item:
@@ -731,7 +731,7 @@ loadFile filename =
             esac   
         done
         (OK ())
-        (parseFile filename)
+        (parseTurtleFile filename)
     ~> \(Store st));
 
-{ parseHandle, parseFile, loadFile }
+{ parseTurtleHandle, parseTurtleFile, loadTurtleFile }
