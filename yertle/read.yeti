@@ -1,6 +1,24 @@
 
 module yertle.read;
 
+/*
+   RDF/Turtle parser.
+  
+   Parser functions return Error "error text" | OK someValue, where
+   someValue is itself a tagged variant type.
+
+   The ~> operator defined in parsebits.yeti (evaluate the left side,
+   pass result to the right side if it was OK something, or else
+   return the error) is used extensively for control flow.
+
+   Only partially constructed triples are returned as values from
+   functions: when a triple is completed, it is "emitted" and added to
+   the pending triples in the state object rather than being returned.
+   (This is necessary because there may be individual parse tokens
+   that result in emitting more than one triple -- such as collection
+   elements.)
+*/
+
 char = load yertle.char;
 store = load yertle.store;
 
@@ -85,21 +103,15 @@ unicodeEscape state =
             esac
         );
 
-backslashEscape state =
+backslashEscape state = 
     required "\\" state ~>
-      \(res = case state.reader.next of
-         "t": OK (Token "\t");
-         "b": OK (Token "\b");
-         "n": OK (Token "\n");
-         "r": OK (Token "\r");
-         "f": OK (Token "\f");
-        "\\": OK (Token "\\");
-        "\"": OK (Token "\"");
-         "'": OK (Token  "'");
-           _: Error "Expected one of tbnrf\"' after \\ at \(state.reader.location)";
-       esac;
-       state.reader.discard ();
-       res);
+      \(escapes = [ 't': "\t", 'b': "\b", 'n': "\n", 'r': "\r", 'f': "\f",
+                    '\': '\', '"': '"', "'": "'" ];
+        if state.reader.next in escapes then
+            OK (Token escapes[state.reader.read ()]);
+        else
+            Error "Unknown escape sequence at \(state.reader.location)"
+        fi);
 
 emit state triple =
     push state.pendingTriples triple;
@@ -308,7 +320,7 @@ blank state =
             fi;
         esac;
 
-//!!! cyclical dependency
+// resolve cyclical dependency
 // object -> nonLiteralObject -> collection -> object
 // and
 // object -> nonLiteralObject -> blankNodePropertyList -> objectList -> object
@@ -518,7 +530,7 @@ literal state =
       _: numericLiteral state;
     esac;
 
-//!!! cyclical dependency
+// resolve cyclical dependency
 // blankNodePropertyList -> predicateObjectList -> objectList -> object -> nonLiteralObject -> blankNodePropertyList
 var blankNodePropertyList' state = 
     Error "blankNodePropertyList' should have been reassigned";
@@ -577,13 +589,12 @@ predicateObjectList state =
                                         map do n: { p = IRI iri, o = n } done
                                             nodes));
                         esac;
-                _: // e.g. boolean literal, base/prefix
+                _: // e.g. boolean literal
                     Error "Expected IRI before \(state.reader.location)";
                 esac ~>
                    \case of POList lst:
                         if havePunctuation ";" state then
-                           (state.reader.discard ();
-                            havePunctuation ";" state) loop ();
+                            havePunctuation ";" state loop state.reader.discard ();
                             predicateObjectList' lst state
                         else
                             OK (POList lst)
@@ -606,7 +617,9 @@ blankNodePropertyList state =
 
 blankNodePropertyList' := blankNodePropertyList;
 
-// [6] triples ::= subject predicateObjectList | blankNodePropertyList predicateObjectList?
+// [6] triples ::= subject predicateObjectList |
+//                 blankNodePropertyList predicateObjectList?
+//
 // Handles the blankNodePropertyList part of that alternation
 blankNodeTriples state = 
     blankNodePropertyList state ~> 
@@ -614,10 +627,12 @@ blankNodeTriples state =
             predicateObjectList state ~>
                \case of POList polist:
                     emitWithSubject state subj polist;
-                esac;
-        esac ~> \(punctuation "." state);
+                esac
+        esac;
 
-// [6] triples ::= subject predicateObjectList | blankNodePropertyList predicateObjectList?
+// [6] triples ::= subject predicateObjectList |
+//                 blankNodePropertyList predicateObjectList?
+// 
 // Handles the subject part of that alternation
 subjectTriples state =
     subject state ~> 
@@ -629,7 +644,7 @@ subjectTriples state =
                     Error "Predicate required after subject at \(state.reader.location)";
                 POList polist:
                     emitWithSubject state subj polist;
-                esac ~> \(punctuation "." state);
+                esac
         esac;
 
 triples state = 
@@ -648,7 +663,7 @@ statement state =
          state.reader.lookingAt likeSparqlPfx then
         directive state;
     else
-        triples state;
+        triples state ~> \(punctuation "." state);
     fi);
 
 document state =
