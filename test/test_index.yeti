@@ -3,21 +3,11 @@ module test.test_index;
 
 { compare, compareUnordered } = load test.test;
 
-{ add, remove, enumerate, contains, match, chooseIndex } = load yertle.index;
+{ newIndex, add, remove, enumerate, contains, match, chooseIndex } = load yertle.index;
 
-newIndex type = {
-    order =
-    case type of 
-       // list of selectors must be exhaustive for the statement structure
-       SPO (): [ (.s), (.p), (.o) ];
-       POS (): [ (.p), (.o), (.s) ];
-       OPS (): [ (.o), (.p), (.s) ];
-       Other o: o;
-    esac,
-    tree = [:];
-};
+newIndexFor name = newIndex (tail (strSplit "" name)); // "spo" -> ["s","p","o"]
 
-triple a b c = { s = IRI a, p = IRI b, o = IRI c };
+triple a b c = [ "s" : IRI a, "p" : IRI b, "o" : IRI c ];
 
 testTriple n =
     case n of
@@ -31,57 +21,46 @@ testTriple n =
 
 testWildcard n =
     case n of
-    "***": { s = Wildcard (), p = Wildcard (), o = Wildcard () };
-    "aa*": { s = IRI "fred", p = IRI "loves", o = Wildcard () };
-    "a**": { s = IRI "fred", p = Wildcard (), o = Wildcard () };
-    "*a*": { s = Wildcard (), p = IRI "loves", o = Wildcard () };
-    "a*a": { s = IRI "fred", p = Wildcard (), o = IRI "cheese" };
-    "**a": { s = Wildcard (), p = Wildcard (), o = IRI "cheese" };
-    _: { s = Wildcard (), p = Wildcard (), o = Wildcard () };
+    "***": [:];
+    "aa*": [ "s" : IRI "fred", "p" : IRI "loves" ];
+    "a**": [ "s" : IRI "fred" ];
+    "*a*": [ "p" : IRI "loves" ];
+    "a*a": [ "s" : IRI "fred", "o" : IRI "cheese" ];
+    "**a": [ "o" : IRI "cheese" ];
+    _: [:];
     esac;
 
 indexNames = [ "spo", "pos", "ops", "sop", "pso", "osp" ];
 
-indexType n =
-    case n of
-    "spo": SPO ();
-    "pos": POS ();
-    "ops": OPS ();
-    "sop": Other [ (.s), (.o), (.p) ];
-    "pso": Other [ (.p), (.s), (.o) ];
-    "osp": Other [ (.o), (.s), (.p) ];
-    _: Other [];
-    esac;
-
-perIndex name type =
+perIndex name =
 [
 
 "\(name)-empty": \(
-    compareUnordered (enumerate (newIndex type)) [];
+    compareUnordered (enumerate (newIndexFor name)) [];
 ),
 
 "\(name)-simple": \(
-    h = newIndex type;
+    h = newIndexFor name;
     add h (testTriple "aaa") and
        compareUnordered (enumerate h) [testTriple "aaa"];
 ),
 
 "\(name)-duplicate": \(
-    h = newIndex type;
+    h = newIndexFor name;
     add h (testTriple "aaa") and
        add h (testTriple "aaa") and
        compareUnordered (enumerate h) [testTriple "aaa"];
 ),
 
 "\(name)-common": \(
-    h = newIndex type;
+    h = newIndexFor name;
     add h (testTriple "aaa") and
        add h (testTriple "aab") and
        compareUnordered (enumerate h) [testTriple "aaa",testTriple "aab"];
 ),
 
 "\(name)-diverging": \(
-    h = newIndex type;
+    h = newIndexFor name;
     add h (testTriple "aaa") and
        add h (testTriple "aab") and
        add h (testTriple "abc") and
@@ -94,7 +73,7 @@ perIndex name type =
 ),
 
 "\(name)-contains": \(
-    h = newIndex type;
+    h = newIndexFor name;
     add h (testTriple "aaa") and
        add h (testTriple "aab") and
        add h (testTriple "abc") and
@@ -107,7 +86,7 @@ perIndex name type =
 ),
 
 "\(name)-remove": \(
-    h = newIndex type;
+    h = newIndexFor name;
     add h (testTriple "aaa") and
        add h (testTriple "aab") and
        add h (testTriple "abc") and
@@ -121,7 +100,7 @@ perIndex name type =
 ),
 
 "\(name)-match": \(
-    h = newIndex type;
+    h = newIndexFor name;
     add h (testTriple "aaa") and
        add h (testTriple "aab") and
        add h (testTriple "abc") and
@@ -135,14 +114,14 @@ perIndex name type =
 
 testIndexFor ixs patstr ixstrs =
    (ix = chooseIndex ixs (testWildcard patstr);
-    contains? ix (map do n: newIndex (indexType n) done ixstrs) or
+    contains? ix (map do n: newIndexFor n done ixstrs) or
        (println "** for \(testWildcard patstr)\n   expected: one of \(ixstrs)\n   obtained: \(ix.order)"; false));
 
 discriminatory =
 [
 
 "chooseIndexFromAll": \(
-    ixs = map do n: newIndex (indexType n) done indexNames;
+    ixs = map do n: newIndexFor n done indexNames;
     testIndexFor ixs "aa*" ["spo","pso"] and
         testIndexFor ixs "a**" ["spo","sop"] and
         testIndexFor ixs "aaa" indexNames and
@@ -152,7 +131,7 @@ discriminatory =
 ),
 
 "chooseIndexFromSet": \(
-    ixs = map do n: newIndex (indexType n) done ["spo","pos","ops"];
+    ixs = map do n: newIndexFor n done ["spo","pos","ops"];
     testIndexFor ixs "aa*" ["spo"] and
         testIndexFor ixs "a**" ["spo"] and
         testIndexFor ixs "aaa" ["spo","pos","ops"] and
@@ -165,7 +144,7 @@ discriminatory =
 
 all = [:];
 
-for (concat [map do n: perIndex n (indexType n) done indexNames,
+for (concat [map do n: perIndex n done indexNames,
              [discriminatory]],) do h:
     for (keys h) do k: all[k] := h[k] done
 done;

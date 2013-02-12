@@ -1,30 +1,18 @@
 
 module yertle.index;
 
-typedef literal = { value is string, type is string };
+typedef statement = hash<string, 'a>;
 
-typedef statement = {
-    s is IRI string | Blank number,
-    p is IRI string,
-    o is IRI string | Blank number | Literal literal,
-};
+typedef indextree = hash<'a, Sub 'b | Entry 'c>;
 
-typedef pattern = {
-    s is Wildcard () | IRI string | Blank number,
-    p is Wildcard () | IRI string,
-    o is Wildcard () | IRI string | Blank number | Literal literal,
-};
-
-typedef indextree = hash<IRI string | Blank number | Literal literal, Sub 'b | Entry 'c>;
-
-typedef index = { order is list<'a>, tree is indextree };
+typedef index = { order is list<string>, tree is indextree };
 
 newIndex order = { order, tree = [:] };
 
 add ix stmt is index -> statement -> boolean =
     case ix.order of
-    selector::rest:
-        node = selector stmt;
+    key::rest:
+        node = stmt[key];
         if not node in ix.tree then 
             if empty? rest then 
                 ix.tree[node] := Entry stmt;
@@ -45,8 +33,8 @@ add ix stmt is index -> statement -> boolean =
 
 remove ix stmt is index -> statement -> boolean =
     case ix.order of
-    selector::rest:
-        node = selector stmt;
+    key::rest:
+        node = stmt[key];
         if not node in ix.tree then false 
         else
             case ix.tree[node] of
@@ -70,15 +58,16 @@ enumerate' tree is 'a -> list<statement> =
 enumerate ix is index -> list<statement> =
     enumerate' ix.tree;
 
-match ix pat is index -> pattern -> list<statement> =
+match ix pat is index -> statement -> list<statement> =
     concat
        (case ix.order of
-        selector::rest:
-           (node = selector pat;
-            matching = case node of
-                       Wildcard _: keys ix.tree;
-                       _: if node in ix.tree then [node] else [] fi;
-                       esac;
+        key::rest:
+           (matching = if key in pat then
+                           node = pat[key];
+                           if node in ix.tree then [node] else [] fi;
+                       else
+                           keys ix.tree;
+                       fi;
             map do m:
                 case ix.tree[m] of
                 Sub sub: match { order = rest, tree = sub } pat;
@@ -91,17 +80,16 @@ match ix pat is index -> pattern -> list<statement> =
 contains ix stmt is index -> statement -> boolean =
     not empty? (match ix stmt);
 
-scoreIndexFor pat order is pattern -> 'b -> number =
+scoreIndexFor pat order is statement -> 'b -> number =
     case order of
-    selector::rest:
-        case selector pat of
-        Wildcard _: 0;
-                 _: 16
-        esac + (scoreIndexFor pat rest) / 2;
+    key::rest:
+        if key in pat then 16
+        else 0
+        fi + (scoreIndexFor pat rest) / 2;
     _: 0;
     esac;
 
-chooseIndex ixs pat is list<index> -> pattern -> index =
+chooseIndex ixs pat is list<index> -> statement -> index =
    (h = mapIntoHash ((scoreIndexFor pat) . (.order)) id ixs;
     best = head (sortBy (>) (keys h));
     h[best]);
