@@ -29,6 +29,11 @@ import java.lang: Character;
 xsdPrefix = "http://www.w3.org/2001/XMLSchema#";
 rdfPrefix = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
 
+booleanType = "\(xsdPrefix)boolean";
+doubleType  = "\(xsdPrefix)double";
+decimalType = "\(xsdPrefix)decimal";
+integerType = "\(xsdPrefix)integer";
+
 rdfTypeIRI  = IRI "\(rdfPrefix)type";
 rdfFirstIRI = IRI "\(rdfPrefix)first";
 rdfRestIRI  = IRI "\(rdfPrefix)rest";
@@ -70,6 +75,7 @@ matchE        = (=~ "[Ee]");
 matchPNPrefix = (=~ "^\(rePNPrefix)$");
 matchBlank    = (=~ "^\(reBlank)$");
 matchNonLit   = (=~ "[_(\\[<:\(rePNCharsBase)]");
+matchAbsIRI   = (=~ "^[a-zA-Z]+://");
 
 matchAllPName = matchAll "^(\(rePNPrefix))?:(\(rePNLocal))$" M T;
 
@@ -172,58 +178,43 @@ pnameNS state =
                 Error "Expected ':' at end of prefix before \(state.reader.location)"
             fi
         esac;
-               
+             
+resolved state iri =
+    if matchAbsIRI iri then iri
+    else state.base ^ iri
+    fi;
+  
 base state = 
-    tokseq state [ whitespace, iriref, punctuation "." ] ~>
+    tokseq state [ whitespace, iriref ] ~>
        \case of
         Token iri: 
-            state.base := iri;
+            state.base := resolved state iri;
             OK (Empty ());
         esac;
                     
 prefix state =
     tokseq state [ whitespace, pnameNS ] ~>
        \case of Token pname:
-            tokseq state [whitespace, iriref, punctuation "."] ~>
+            tokseq state [ whitespace, iriref ] ~>
                \case of Token iri:
-                    state.namespaces[pname] := iri;
+                    state.namespaces[pname] := resolved state iri;
                     OK (Empty ());
                 esac;
         esac;
        
 sparqlBase state =
     pnameCandidate state ~>
-       \case of
-        Token t:
-            if (strLower t) == "base" then
-                tokseq state [ whitespace, iriref ] ~>
-                   \case of
-                    Token iri: 
-                        state.base := iri;
-                        OK (Empty ());
-                    esac;
-            else
-                Error "Expected BASE at \(state.reader.location)";
+       \case of Token t:
+            if (strLower t) == "base" then base state;
+            else Error "Expected BASE at \(state.reader.location)";
             fi
         esac;
 
 sparqlPrefix state =
     pnameCandidate state ~>
-       \case of
-        Token t:
-            if (strLower t) == "prefix" then
-                tokseq state [ whitespace, pnameNS ] ~>
-                   \case of
-                    Token pname:
-                        tokseq state [ whitespace, iriref ] ~>
-                           \case of
-                            Token iri: 
-                                state.namespaces[pname] := iri;
-                                OK (Empty ());
-                            esac;
-                    esac;
-            else
-                Error "Expected PREFIX at \(state.reader.location)";
+       \case of Token t:
+            if (strLower t) == "prefix" then prefix state;
+            else Error "Expected PREFIX at \(state.reader.location)";
             fi
         esac;
 
@@ -231,8 +222,8 @@ directive state =
     case state.reader.next of
     "@": langtag state ~>
             \case of
-             Token "prefix": prefix state;
-             Token "base": base state;
+             Token "prefix": noseq state [ prefix, punctuation "." ];
+             Token   "base": noseq state [ base,   punctuation "." ];
              Token t: Error "Expected base or prefix, found '\(t)' at \(state.reader.location)";
              esac;
     "B": sparqlBase state;
@@ -241,9 +232,6 @@ directive state =
     "p": sparqlPrefix state;
       _: Error "Expected @base, @prefix, BASE, or PREFIX at \(state.reader.location)";
     esac;
-
-booleanType =
-    "\(xsdPrefix)boolean";
 
 newBoolLiteral b =
     Literal (newLiteral (if b then "true" else "false" fi) with { type = booleanType });
@@ -271,7 +259,8 @@ prefixExpanded state text =
     [M [whole, prefix, local]]:
         if prefix in state.namespaces then
             try
-                OK (IRI (state.namespaces[prefix] ^ unescapeLocal local));
+                OK (IRI (resolved state
+                            (state.namespaces[prefix] ^ unescapeLocal local)));
             catch NumberFormatException _:
                 Error "Malformed escape in local name '\(local)' before \(state.reader.location)";
             yrt
@@ -363,7 +352,7 @@ collection state =
 // [135s] iri ::= IRIREF | PrefixedName
 iri state =
     case state.reader.next of
-    "<": iriref state ~> \case of Token t: OK (IRI t); esac;
+    "<": iriref state ~> \case of Token t: OK (IRI (resolved state t)); esac;
       _: prefixedName state;
     esac;
 
@@ -507,9 +496,9 @@ numericLiteral state =
         numericCandidate state ~> 
            \case of
             Token n:
-                type = if matchE n then "\(xsdPrefix)double"
-                       elif strIndexOf n "." 0 >= 0 then "\(xsdPrefix)decimal"
-                       else "\(xsdPrefix)integer"
+                type = if matchE n then doubleType
+                       elif strIndexOf n "." 0 >= 0 then decimalType
+                       else integerType
                        fi;
                 num = number (parseableNumber n);
                 OK (Literal (newLiteral "\(num)" with { type }));
