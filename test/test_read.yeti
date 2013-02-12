@@ -1,0 +1,27 @@
+
+module test.test_read;
+
+{ compare, compareUnordered } = load test.test;
+
+{ newStore, enumerate, contains, match } = load yertle.store;
+{ loadFile, parseFile } = load yertle.read;
+
+testFileDir = "test/ttl";
+
+checkParse filename =
+   (err =
+        find \case of Error e: true; _: false esac
+           (parseFile filename);
+    if empty? err then true
+    else println "\n** In parsing \(filename):\n   \(head err)"; false
+    fi);
+
+(mapIntoHash id do n: \(checkParse "\(testFileDir)/\(n).ttl") done
+
+[
+    "bnode-nested-2", "bnode-nested", "bnode", "boolean", "collections",
+    "example1", "example2", "example3", "goblin", "iris", "numbers", "quoted",
+]
+
+) is hash<string, () -> boolean>;
+
