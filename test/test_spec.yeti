@@ -56,7 +56,7 @@ checkParse isPositive filename =
     fi);
 
 compareNTriples a b =
-   (ah = openInFile a "US-ASCII";
+   (ah = openInFile a "US-ASCII"; // Unlike Turtle, NTriples is ASCII
     bh = openInFile b "US-ASCII";
     rewrite = map (substAll "_:[a-zA-Z]+[a-zA-Z0-9]*\\b" "{blanknode}");
     atext = sort (rewrite (ah.lines ()));

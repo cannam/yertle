@@ -3,16 +3,40 @@ module yertle.write;
 
 store = load yertle.store;
 
+import java.lang: Character;
+
+asciiEncode text =
+   (encode c = 
+        case c of 
+        "\t": "\\t";
+        "\n": "\\n";
+        "\r": "\\r";
+        "\"": "\\\"";
+        "\\": "\\\\";
+           _:
+           (s = Integer#toHexString(Character#codePointAt(c is string, 0));
+            u = if (strLength s) < 5 then "u" else "U" fi;
+            n = if (strLength s) < 5 then 4 else 8 fi;
+            "\\\(u)" ^ (strPad "0" (n - strLength s) "") ^ (strUpper s))
+        esac;
+    strJoin ""
+       (map
+        \case of
+         Ascii t: t;
+         NotAscii [c]: encode c;
+         _: ""
+         esac (matchAll "[^\\x20-\\x21\\x23-\\x5b\\x5d-\\x7e]"
+                   NotAscii Ascii text))
+    );
+
 writeNode handle node =
     case node of
     IRI u:
-        handle.write "<\(u)>";
+        handle.write "<\(asciiEncode u)>";
     Blank b:
         handle.write "_:blank\(b)";
     Literal l:
-       (handle.write '"';
-        handle.write l.value;
-        handle.write '"';
+       (handle.write "\"\(asciiEncode l.value)\"";
         if l.language != "" then
             handle.write "@\(l.language)";
         elif l.type != "" then
