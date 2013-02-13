@@ -514,7 +514,9 @@ numericLiteral state =
                        else integerType
                        fi;
                 num = number (parseableNumber n);
-                OK (Literal (newLiteral "\(num)" with { type }));
+                //!!! We actually are not supposed to canonicalise numbers???
+//                OK (Literal (newLiteral "\(num)" with { type }));
+                OK (Literal (newLiteral "\(n)" with { type }));
             esac;
     catch NumberFormatException _:
         Error "Malformed numeric literal at \(state.reader.location)";
