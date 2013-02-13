@@ -1253,7 +1253,7 @@
 
 <#turtle-eval-bad-01> rdf:type rdft:TestTurtleNegativeEval ;
    mf:name    "turtle-eval-bad-01" ;
-   rdfs:comment "Bad IRI : good escape, bad charcater (negative evaluation test)" ;
+   rdfs:comment "Bad IRI : good escape, bad character (negative evaluation test)" ;
    mf:action    <turtle-eval-bad-01.ttl> ;
    .
 

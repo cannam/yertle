@@ -10,9 +10,11 @@ module test.test_spec;
 testFileDir = "test/ttl/spec";
 outFileDir = "test/out";
 
-manifest = loadTurtleFile (testFileDir ^ "/manifest.ttl");
+manifest = loadTurtleFile (testFileDir ^ "/manifest.ttl") "";
 
 tests = [:];
+
+baseIri = "http://example/base/";
 
 firstResultObjectText results =
     case results of
@@ -44,12 +46,13 @@ metadata mstore iri =
 checkParse isPositive filename =
    (err =
         find \case of Error e: true; _: false esac
-           (parseTurtleFile filename);
+           (parseTurtleFile filename baseIri);
     if isPositive then
         if empty? err then true
         else println "\n** In parsing \(filename):\n   \(head err)"; false fi
     else
-        not empty? err
+        if not empty? err then true
+        else println "\n** Erroneously accepted \(filename) in negative test"; false fi
     fi);
 
 compareNTriples a b =
@@ -83,7 +86,7 @@ addTest mstore type p =
             do filename:
                 checkParse true filename and
                    (fstore =
-                        case loadTurtleFile filename of
+                        case loadTurtleFile filename baseIri of
                         Store s: s;
                         Error e: println "Error: \(e)"; newStore ();
                         esac;
