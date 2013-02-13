@@ -423,7 +423,7 @@ longStringBody quote state =
         elif state.reader.next == params.qchar then
             if state.reader.lookingAt params.qlike then
                 for [1..3] \(state.reader.discard ());
-                OK (Token acc);
+                OK (Token text);
             else
                 longStringBody' params (text ^ state.reader.read ()) state
             fi
