@@ -513,9 +513,12 @@ numericLiteral state =
                        elif strIndexOf n "." 0 >= 0 then decimalType
                        else integerType
                        fi;
-                num = number (parseableNumber n);
-                //!!! We actually are not supposed to canonicalise numbers???
-//                OK (Literal (newLiteral "\(num)" with { type }));
+                // We aren't actually supposed to canonicalise numbers
+                // when storing, it seems (judging from the spec
+                // tests). Instead we should store them textually as
+                // they appear in the file. However, we still convert
+                // in order to test whether they are convertible
+                do _: () done (number (parseableNumber n));
                 OK (Literal (newLiteral "\(n)" with { type }));
             esac;
     catch NumberFormatException _:
@@ -696,11 +699,11 @@ flattened doc currentTriples =
         esac;
     esac;
 
-newState reader =
+newState reader baseIri =
    (var nextBnode = 0;
     {
         reader,
-        var base = "",
+        var base = baseIri,
         pendingTriples = array [],
         namespaces = [:],
         bnodeLabels = [:],
@@ -709,17 +712,18 @@ newState reader =
             nextBnode);
     });
 
-parse reader =
-    flattened (document (newState reader)) [];
+parse reader baseIri =
+    flattened (document (newState reader baseIri)) [];
 
-parseTurtleHandle handle = 
-    parse (char.reader handle);
+parseTurtleHandle handle baseIri = 
+    parse (char.reader handle) baseIri;
 
-parseTurtleFile filename = 
-    parse (char.reader (openInFile filename "UTF-8")); // Turtle is always utf8
+parseTurtleFile filename baseIri = 
+    parse (char.reader (openInFile filename "UTF-8")) // Turtle is always utf8
+        baseIri;
 
 //!!! load to new store. loading into an existing store depends on proper global handling of blank nodes, which is still pending
-loadTurtleFile filename = 
+loadTurtleFile filename baseIri = 
    (st = store.newStore ();
     fold
         do acc item:
@@ -735,7 +739,7 @@ loadTurtleFile filename =
             esac   
         done
         (OK ())
-        (parseTurtleFile filename)
+        (parseTurtleFile filename baseIri)
     ~> \(Store st));
 
 { parseTurtleHandle, parseTurtleFile, loadTurtleFile }
