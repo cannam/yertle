@@ -56,9 +56,9 @@ checkParse isPositive filename =
     fi);
 
 compareNTriples a b =
-   (ah = openInFile a "UTF-8";
-    bh = openInFile b "UTF-8";
-    rewrite = map (substAll "_:(blank|genid)[0-9]*" "{blanknode}");
+   (ah = openInFile a "US-ASCII";
+    bh = openInFile b "US-ASCII";
+    rewrite = map (substAll "_:[a-zA-Z]+[a-zA-Z0-9]*\\b" "{blanknode}");
     atext = sort (rewrite (ah.lines ()));
     btext = sort (rewrite (bh.lines ()));
     ah.close ();
