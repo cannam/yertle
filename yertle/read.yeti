@@ -408,33 +408,34 @@ openQuote state =
     fi);
 
 longStringBody quote state =
-   (longStringBody' quote matcher n acc state =
-       (text = state.reader.readMatch matcher;
+   (longStringBody' params acc state =
+       (text = acc ^ (state.reader.readMatch params.matcher);
         if state.reader.lookingAt likeSlashU then
             unicodeEscape state ~>
                \case of
-                Token t: longStringBody' quote matcher 0 (acc ^ text ^ t) state;
+                Token t: longStringBody' params (text ^ t) state;
                 esac
         elif state.reader.lookingAt likeStringEscape then
             backslashEscape state ~>
                \case of
-                Token t: longStringBody' quote matcher 0 (acc ^ text ^ t) state;
+                Token t: longStringBody' params (text ^ t) state;
                 esac
-        elif state.reader.next == quote then
-            if text != "" then // have had text since last quote
-                longStringBody' quote matcher 0 (acc ^ text) state;
-            elif n == 2 then // third quote in a row, ends the string
-                state.reader.discard ();
-                OK (Token (strLeft acc (strLength acc - 2)));
+        elif state.reader.next == params.qchar then
+            if state.reader.lookingAt params.qlike then
+                for [1..3] \(state.reader.discard ());
+                OK (Token acc);
             else
-                longStringBody' quote matcher (n + 1) (acc ^ state.reader.read ()) state
+                longStringBody' params (text ^ state.reader.read ()) state
             fi
         elif state.reader.isEof then
             Error "End of file reached in long string"
         else
-            longStringBody' quote matcher 0 (acc ^ state.reader.read ()) state
+            longStringBody' params (text ^ state.reader.read ()) state
         fi);
-    longStringBody' quote (likeShortString quote) 0 "" state);
+    longStringBody' { qchar = quote,
+                      qlike = (like "^\(quote)\(quote)\(quote)"),
+                      matcher = (likeShortString quote)
+                    } "" state);
 
 shortStringBody quote state =
    (shortStringBody' matcher acc state =
