@@ -80,8 +80,8 @@ matchIRIChars = (=~ ("^[%a-zA-Z0-9\\._~:/?#\\[\\]@!$&'()*+,;=\\u00A0-\\uFFFF-]*$
 
 matchAllPName = matchAll "^(\(rePNPrefix))?:(\(rePNLocal))$" M T;
 
-likeSparqlBase = like "^[Bb][Aa][Ss][Ee][ \t]";
-likeSparqlPfx = like "^[Pp][Rr][Ee][Ff][Ii][Xx][ \t]";
+likeSparqlBase = like "^[Bb][Aa][Ss][Ee]\\b";
+likeSparqlPfx = like "^[Pp][Rr][Ee][Ff][Ii][Xx]\\b";
 
 newLiteral string = { value = string, type = "", language = "" };
 
@@ -184,7 +184,10 @@ pnameNS state =
                 Error "Expected ':' at end of prefix before \(state.reader.location)"
             fi
         esac;
-             
+
+//!!! This is not actually how you expand IRIs relative to a base (see
+//http://www.ietf.org/rfc/rfc3986.txt sec 5.2.2) and we currently fail
+//one of the subm tests because of it
 resolved state iri =
     if matchAbsIRI iri then iri
     else state.base ^ iri
@@ -245,6 +248,7 @@ newBoolLiteral b =
 // Assumes local is known to match the pname local escapes patterns
 // (i.e. if it has any escapes, they will have enough characters in
 // the escaped data)
+//!!! todo: test (getting correct output here is not covered by any spec test)
 unescapeLocal local =
    (unescapeLocal' acc local =
         if local == "" then acc
@@ -253,10 +257,15 @@ unescapeLocal local =
             unescapeLocal' (acc ^ (strJoin "" Character#toChars(number hex)))
                 (strRight local 3);
         elif strStarts? local "\\" then
-            //!!! Not implemented yet
-            unescapeLocal' (acc ^ strLeft local 1) (strRight local 1);
+            unescapeLocal' acc (strRight local 1);
         else
-            unescapeLocal' (acc ^ strLeft local 1) (strRight local 1);
+            var n = 0;
+            len = strLength local;
+            n < len and strChar local n != "%" and strChar local n != "\\"
+                loop n := n + 1;
+            if n == len then acc ^ local
+            else unescapeLocal' (acc ^ strLeft local n) (strRight local n)
+            fi;
         fi;
     unescapeLocal' "" local);
 
@@ -280,7 +289,7 @@ prefixedName state =
     pnameCandidate state ~>
        \case of
         // We can't tell the difference, until we get here, between a
-        // prefixed name and the bare keywords true or false
+        // prefixed name and the bare literals true or false
         Token t:
             if t == "true" then OK (newBoolLiteral true);
             elif t == "false" then OK (newBoolLiteral false);
@@ -408,8 +417,7 @@ openQuote state =
             else
                 OK (Empty ()); // two quotes: empty string
             fi
-        else
-            OK (Short quote); // one quote: short string opening
+        else OK (Short quote); // one quote: short string opening
         fi
     fi);
 
