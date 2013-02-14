@@ -76,6 +76,7 @@ matchPNPrefix = (=~ "^\(rePNPrefix)$");
 matchBlank    = (=~ "^\(reBlank)$");
 matchNonLit   = (=~ "[_(\\[<:\(rePNCharsBase)]");
 matchAbsIRI   = (=~ "^[a-zA-Z]+://");
+matchIRIChars = (=~ ("^[%a-zA-Z0-9\\._~:/?#\\[\\]@!$&'()*+,;=\\u00A0-\\uFFFF-]*$"));
 
 matchAllPName = matchAll "^(\(rePNPrefix))?:(\(rePNLocal))$" M T;
 
@@ -90,7 +91,7 @@ punctuation expected state =
 havePunctuation expected state =
    (chomp state; state.reader.next == expected);
 
-unicodeEscape state =
+unicodeEscape state inIRI =
     required "\\" state ~>
       \(n = case state.reader.next of "u": 4; "U": 8; _: 0 esac;
         if n == 0 then Error "Expected \\U or \\u at \(state.reader.location)";
@@ -100,7 +101,12 @@ unicodeEscape state =
         fi ~>
            \case of
             Token t:
-                try OK (Token (strJoin "" Character#toChars(number "0x\(t)")));
+                try
+                    result = strJoin "" Character#toChars(number "0x\(t)");
+                    if inIRI and not matchIRIChars result
+                    then Error "Invalid escaped character \(result) in IRI at \(state.reader.location)";
+                    else OK (Token result);
+                    fi
                 catch NumberFormatException _:
                     Error "Expected \(n)-character hex at \(state.reader.location)";
                 catch IllegalArgumentException _:
@@ -140,7 +146,7 @@ iriref state =
    (iriref' acc state =
        (part = state.reader.readMatch likeIRIPart;
         if state.reader.lookingAt likeSlashU then
-            unicodeEscape state ~>
+            unicodeEscape state true ~>
                \case of
                 Token u: iriref' (acc ^ part ^ u) state;
                 esac;
@@ -411,7 +417,7 @@ longStringBody quote state =
    (longStringBody' params acc state =
        (text = acc ^ (state.reader.readMatch params.matcher);
         if state.reader.lookingAt likeSlashU then
-            unicodeEscape state ~>
+            unicodeEscape state false ~>
                \case of
                 Token t: longStringBody' params (text ^ t) state;
                 esac
@@ -441,7 +447,7 @@ shortStringBody quote state =
    (shortStringBody' matcher acc state =
        (text = state.reader.readMatch matcher;
         if state.reader.lookingAt likeSlashU then
-            unicodeEscape state ~>
+            unicodeEscape state false ~>
                \case of
                 Token t: shortStringBody' matcher (acc ^ text ^ t) state;
                 esac
