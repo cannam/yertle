@@ -1,11 +1,13 @@
 
 module yertle.index;
 
-typedef statement = hash<string, 'a>;
+typedef statement = array<'a>;
+
+typedef pattern = array<'a>;
 
 typedef indextree = hash<'a, Sub 'b | Entry 'c>;
 
-typedef index = { order is list<string>, tree is indextree };
+typedef index = { order is list<number>, tree is indextree };
 
 newIndex order = { order, tree = [:] };
 
@@ -45,7 +47,6 @@ remove ix stmt is index -> statement -> boolean =
     _: false;
     esac;
 
-//!!! how to make this lazy?
 enumerate' tree is 'a -> list<statement> =
     concat
        (map do k:
@@ -58,16 +59,14 @@ enumerate' tree is 'a -> list<statement> =
 enumerate ix is index -> list<statement> =
     enumerate' ix.tree;
 
-match ix pat is index -> statement -> list<statement> =
+match ix pat is index -> pattern -> list<statement> =
     concat
        (case ix.order of
         key::rest:
-           (matching = if key in pat then
-                           node = pat[key];
-                           if node in ix.tree then [node] else [] fi;
-                       else
-                           keys ix.tree;
-                       fi;
+           (matching = case pat[key] of
+                       Wildcard _: keys ix.tree;
+                       Known node: if node in ix.tree then [node] else [] fi;
+                       esac;
             map do m:
                 case ix.tree[m] of
                 Sub sub: match { order = rest, tree = sub } pat;
@@ -78,18 +77,20 @@ match ix pat is index -> statement -> list<statement> =
         esac);
 
 contains ix stmt is index -> statement -> boolean =
-    not empty? (match ix stmt);
+    not empty?
+       (match ix (array (map Known stmt)));
 
-scoreIndexFor pat order is statement -> 'b -> number =
+scoreIndexFor pat order is pattern -> 'b -> number =
     case order of
     key::rest:
-        if key in pat then 16
-        else 0
-        fi + (scoreIndexFor pat rest) / 2;
+        case pat[key] of
+        Wildcard _: 0;
+        Known _: 16;
+        esac + (scoreIndexFor pat rest) / 2;
     _: 0;
     esac;
 
-chooseIndex ixs pat is list<index> -> statement -> index =
+chooseIndex ixs pat is list<index> -> pattern -> index =
    (h = mapIntoHash ((scoreIndexFor pat) . (.order)) id ixs;
     best = head (sortBy (>) (keys h));
     h[best]);

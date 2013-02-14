@@ -5,9 +5,18 @@ module test.test_index;
 
 { newIndex, add, remove, enumerate, contains, match, chooseIndex } = load yertle.index;
 
-newIndexFor name = newIndex (tail (strSplit "" name)); // "spo" -> ["s","p","o"]
+numberForNode n =
+    case n of
+    "s": 0;
+    "p": 1;
+    "o": 2;
+      _: throw new Exception("Expected s, p, or o, got \(n)");
+    esac;
 
-triple a b c = [ "s" : IRI a, "p" : IRI b, "o" : IRI c ];
+newIndexFor name = newIndex (map numberForNode (tail (strSplit "" name))); // "spo" -> ["s","p","o"]
+
+triple a b c = array [IRI a, IRI b, IRI c];
+pattern a b c = array [a, b, c];
 
 testTriple n =
     case n of
@@ -16,18 +25,19 @@ testTriple n =
     "abc": triple "fred" "hates" "vinegar";
     "bba": triple "jodie" "hates" "cheese";
     "bca": triple "jodie" "tolerates" "fred";
-    _: triple "this" "shouldn't" "happen";
+    _: throw new Exception ("Unsupported pattern \(n) in testTriple");
     esac;
 
 testWildcard n =
     case n of
-    "***": [:];
-    "aa*": [ "s" : IRI "fred", "p" : IRI "loves" ];
-    "a**": [ "s" : IRI "fred" ];
-    "*a*": [ "p" : IRI "loves" ];
-    "a*a": [ "s" : IRI "fred", "o" : IRI "cheese" ];
-    "**a": [ "o" : IRI "cheese" ];
-    _: [:];
+    "***": pattern (Wildcard ()) (Wildcard ()) (Wildcard ());
+    "aaa": pattern (Known (IRI "fred")) (Known (IRI ("loves"))) (Known (IRI ("cheese")));
+    "aa*": pattern (Known (IRI "fred")) (Known (IRI ("loves"))) (Wildcard ());
+    "a**": pattern (Known (IRI "fred")) (Wildcard ()) (Wildcard ());
+    "*a*": pattern (Wildcard ()) (Known (IRI "loves")) (Wildcard ());
+    "a*a": pattern (Known (IRI "fred")) (Wildcard ()) (Known (IRI "cheese"));
+    "**a": pattern (Wildcard ()) (Wildcard ()) (Known (IRI "cheese"));
+    _: throw new Exception ("Unsupported wildcard pattern \(n) in testWildcard");
     esac;
 
 indexNames = [ "spo", "pos", "ops", "sop", "pso", "osp" ];

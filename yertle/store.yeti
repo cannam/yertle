@@ -4,7 +4,8 @@ module yertle.store;
 index = load yertle.index;
 
 typedef fullnode =
-    IRI string | Blank number | Literal { value is string, type is string, language is string };
+    IRI string | Blank number |
+        Literal { value is string, type is string, language is string };
 
 typedef statement = {
     s is IRI string | Blank number,
@@ -13,64 +14,58 @@ typedef statement = {
 };
 
 typedef pattern = {
-    s is Wildcard () | IRI string | Blank number,
-    p is Wildcard () | IRI string,
-    o is Wildcard () | IRI string | Blank number | Literal { value is string, type is string, language is string },
+    s is Wildcard () | Known (IRI string | Blank number),
+    p is Wildcard () | Known (IRI string),
+    o is Wildcard () | Known fullnode,
 };
 
 typedef indextree = hash<fullnode,
                          Sub hash<fullnode,
                                   Sub hash<fullnode,
-                                           Entry hash<string, fullnode>>>>;
+                                           Entry array<fullnode>>>>;
 
 typedef index = {
-    order is list<string>, tree is indextree
+    order is list<number>, tree is indextree
 };
 
 typedef storetype = {
     indexes is list<index>,
 };
 
-newStore () = {
-    indexes = map do n: index.newIndex (tail (strSplit "" n)) done 
-        [ "spo", "pos", "ops" ];
-};
+newStore () = 
+   (desired = [ "spo", "pos", "ops" ];
+    nodemap = [ "s": 0, "p": 1, "o": 2 ];
+    {
+        indexes =
+            map do name:
+                index.newIndex (map (at nodemap) (tail (strSplit "" name)))
+                done
+                desired
+    }
+    );
 
-hashOfStatement t =
-    [ "s": t.s, "p": t.p, "o": t.o ];
+indexable t = array [ t.s, t.p, t.o ];
 
-statementOfHash h =
-    { s = h["s"], p = h["p"], o = h["o"] };
-
-hashOfPattern pat =
-   (h = [:];
-    kmap = [ (.s): "s", (.p): "p", (.o): "o" ];
-    for (keys kmap) do sel:
-        case sel pat of
-        Wildcard _: ();
-        other: h[kmap[sel]] := other;
-        esac
-    done;
-    h);
+deindex tt = { s = tt[0], p = tt[1], o = tt[2] };
 
 add st t =
-   (h = hashOfStatement t;
-    all id (map do ix: index.add ix h done st.indexes));
+   (tt = indexable t;
+    all id (map do ix: index.add ix tt done st.indexes));
 
 remove st t =
-   (h = hashOfStatement t;
-    all id (map do ix: index.remove ix h done st.indexes));
+   (tt = indexable t;
+    all id (map do ix: index.remove ix tt done st.indexes));
 
 enumerate st =
-    map statementOfHash (index.enumerate (head st.indexes));
+    map deindex (index.enumerate (head st.indexes));
 
 contains st t =
     // Doesn't matter which index we use to look up a complete statement
-    index.contains (head st.indexes) (hashOfStatement t);
+    index.contains (head st.indexes) (indexable t);
 
 match st pat =
-   (h = hashOfPattern pat;
-    map statementOfHash (index.match (index.chooseIndex st.indexes h) h));
+   (tt = indexable pat;
+    map deindex (index.match (index.chooseIndex st.indexes tt) tt));
 
 typedef opaque store = storetype;
 

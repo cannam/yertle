@@ -20,11 +20,11 @@ testTriple n =
 testWildcard n =
     case n of
     "***": { s = Wildcard (), p = Wildcard (), o = Wildcard () };
-    "aa*": { s = IRI "fred", p = IRI "loves", o = Wildcard () };
-    "a**": { s = IRI "fred", p = Wildcard (), o = Wildcard () };
-    "*a*": { s = Wildcard (), p = IRI "loves", o = Wildcard () };
-    "a*a": { s = IRI "fred", p = Wildcard (), o = IRI "cheese" };
-    "**a": { s = Wildcard (), p = Wildcard (), o = IRI "cheese" };
+    "aa*": { s = Known (IRI "fred"), p = Known (IRI "loves"), o = Wildcard () };
+    "a**": { s = Known (IRI "fred"), p = Wildcard (), o = Wildcard () };
+    "*a*": { s = Wildcard (), p = Known (IRI "loves"), o = Wildcard () };
+    "a*a": { s = Known (IRI "fred"), p = Wildcard (), o = Known (IRI "cheese") };
+    "**a": { s = Wildcard (), p = Wildcard (), o = Known (IRI "cheese") };
     _: { s = Wildcard (), p = Wildcard (), o = Wildcard () };
     esac;
 

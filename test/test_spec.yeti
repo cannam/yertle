@@ -28,14 +28,14 @@ firstResultObjectText results =
     esac;
 
 metadata mstore iri =
-   (comments = match mstore { s = iri,
-                              p = IRI "http://www.w3.org/2000/01/rdf-schema#comment",
+   (comments = match mstore { s = Known (iri),
+                              p = Known (IRI "http://www.w3.org/2000/01/rdf-schema#comment"),
                               o = Wildcard () };
-    actions  = match mstore { s = iri,
-                              p = IRI "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#action",
+    actions  = match mstore { s = Known (iri),
+                              p = Known (IRI "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#action"),
                               o = Wildcard () };
-    results  = match mstore { s = iri,
-                              p = IRI "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#result",
+    results  = match mstore { s = Known (iri),
+                              p = Known (IRI "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#result"),
                               o = Wildcard () };
     {
         name = firstResultObjectText comments,
@@ -113,23 +113,23 @@ case manifest of
         fi;
     //!!! store should be able to expand prefixes; if store came from loadFile, it should have prefixes loaded too
         for (match mstore { s = Wildcard (),
-                            p = IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-                            o = IRI "http://www.w3.org/ns/rdftest#TestTurtlePositiveSyntax"
+                            p = Known (IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"),
+                            o = Known (IRI "http://www.w3.org/ns/rdftest#TestTurtlePositiveSyntax")
                          })
             (addTest mstore (Positive ()));
         for (match mstore { s = Wildcard (),
-                            p = IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-                            o = IRI "http://www.w3.org/ns/rdftest#TestTurtleNegativeSyntax"
+                            p = Known (IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"),
+                            o = Known (IRI "http://www.w3.org/ns/rdftest#TestTurtleNegativeSyntax")
                          })
             (addTest mstore (Negative ()));
         for (match mstore { s = Wildcard (),
-                            p = IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-                            o = IRI "http://www.w3.org/ns/rdftest#TestTurtleEval"
+                            p = Known (IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"),
+                            o = Known (IRI "http://www.w3.org/ns/rdftest#TestTurtleEval")
                          })
             (addTest mstore (Evaluation ()));
         for (match mstore { s = Wildcard (),
-                            p = IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
-                            o = IRI "http://www.w3.org/ns/rdftest#TestTurtleNegativeEval"
+                            p = Known (IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"),
+                            o = Known (IRI "http://www.w3.org/ns/rdftest#TestTurtleNegativeEval")
                          })
             (addTest mstore (Negative ()));
         );
