@@ -43,7 +43,7 @@ testFileDir = "test/ttl";
 checkParse filename =
    (err =
         find \case of Error e: true; _: false esac
-           (parseTurtleFile filename "");
+           (parseTurtleFile "" filename);
     if empty? err then true
     else println "\n** In parsing \(filename):\n   \(head err)"; false
     fi);

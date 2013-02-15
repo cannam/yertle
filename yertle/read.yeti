@@ -58,6 +58,7 @@ load yertle.parsebits;
 load yertle.ttlre; // Regex matchers for Turtle lexical elements
 
 import java.lang: Character;
+import java.io: StringReader, BufferedReader;
 
 xsdPrefix = "http://www.w3.org/2001/XMLSchema#";
 rdfPrefix = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
@@ -694,8 +695,12 @@ document state =
                (triples = map Triple state.pendingTriples;
                 clearArray state.pendingTriples;
                 document' triples state);
-            Error e: [Error e];
-            End _: [];
+            Error e:
+               (state.reader.close ();
+                [Error e]);
+            End _:
+               (state.reader.close ();
+                []);
             esac
         esac;
     document' [] state);
@@ -714,18 +719,21 @@ newState reader fileIri =
             nextBnode);
     });
 
-parse reader baseIri =
+parse baseIri reader =
     document (newState reader baseIri);
 
-parseTurtleHandle handle baseIri = 
-    parse (char.reader handle) baseIri;
+parseTurtleHandle baseIri handle = 
+    parse baseIri (char.reader handle);
 
-parseTurtleFile filename baseIri = 
-    parse (char.reader (openInFile filename "UTF-8")) // Turtle is always utf8
-        baseIri;
+parseTurtleFile baseIri filename = 
+    parseTurtleHandle baseIri (openInFile filename "UTF-8");
+
+parseTurtleString baseIri str =
+    parseTurtleHandle baseIri
+        (readerHandle (new BufferedReader(new StringReader(str))));
 
 //!!! load to new store. loading into an existing store depends on proper global handling of blank nodes, which is still pending
-loadTurtleFile filename baseIri = 
+loadTurtleFile baseIri filename = 
    (st = store.newStore ();
     fold
         do acc item:
@@ -741,7 +749,7 @@ loadTurtleFile filename baseIri =
             esac   
         done
         (OK ())
-        (parseTurtleFile filename baseIri)
+        (parseTurtleFile baseIri filename)
     ~> \(Store st));
 
-{ parseTurtleHandle, parseTurtleFile, loadTurtleFile }
+{ parseTurtleHandle, parseTurtleFile, parseTurtleString, loadTurtleFile }

@@ -80,6 +80,7 @@ reader handle =
         get isEol () = eol (charAt colno),
         get isEof () = not defined? line,
         get location () = "line \(lineno), column \(colno)",
+        close () = handle.close();
     }
     );
 

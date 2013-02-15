@@ -42,7 +42,7 @@ module test.test_spec;
 testFileDir = "test/ttl/spec";
 outFileDir = "test/out";
 
-manifest = loadTurtleFile (testFileDir ^ "/manifest.ttl") "";
+manifest = loadTurtleFile "" (testFileDir ^ "/manifest.ttl");
 
 tests = [:];
 
@@ -80,7 +80,7 @@ metadata mstore iri =
 checkParse isPositive filename =
    (err =
         find \case of Error e: true; _: false esac
-           (parseTurtleFile (testPath filename) (baseIri ^ filename));
+           (parseTurtleFile (baseIri ^ filename) (testPath filename));
     if isPositive then
         if empty? err then true
         else println "\n** In parsing \(filename):\n   \(head err)"; false fi
@@ -120,7 +120,7 @@ addTest mstore type p =
             do filename:
                 checkParse true filename and
                    (fstore =
-                        case loadTurtleFile (testPath filename) (baseIri ^ filename) of
+                        case loadTurtleFile (baseIri ^ filename) (testPath filename) of
                         Store s: s;
                         Error e: println "Error: \(e)"; newStore ();
                         esac;
