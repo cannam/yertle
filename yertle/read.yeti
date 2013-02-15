@@ -688,31 +688,21 @@ statement state =
     fi);
 
 document state =
-   (result = statement state;
-    tt = map Triple state.pendingTriples;
-    clearArray state.pendingTriples;
-    case result of
-    OK (Empty ()): (Triples tt) :. \(document state);
-    Error e: [Error e];
-    End _: [];
-    esac);
-
-// Flatten out [Triples [Triple, ...], Triples [Triple, ...], Error ...]
-// into [Triple ..., Triple ..., Error ...]
-flattened doc currentTriples =
-    case currentTriples of
-    t::tt:
-        t :. \(flattened doc tt);
-    _:
-        case doc of
-        element::ee:
-            case element of
+   (document' pending state =
+        case pending of
+        triple::rest:
+            triple :. \(document' rest state);
+        _: 
+            case statement state of
+            OK (Empty ()):
+               (triples = map Triple state.pendingTriples;
+                clearArray state.pendingTriples;
+                document' triples state);
             Error e: [Error e];
-            Triples chunk: flattened ee chunk;
-            esac;
-        _: [];
+            End _: [];
+            esac
         esac;
-    esac;
+    document' [] state);
 
 newState reader baseIri =
    (var nextBnode = 0;
@@ -728,7 +718,7 @@ newState reader baseIri =
     });
 
 parse reader baseIri =
-    flattened (document (newState reader baseIri)) [];
+    document (newState reader baseIri);
 
 parseTurtleHandle handle baseIri = 
     parse (char.reader handle) baseIri;
