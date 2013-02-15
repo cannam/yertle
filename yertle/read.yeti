@@ -16,7 +16,9 @@ module yertle.read;
    the pending triples in the state object rather than being returned.
    (This is necessary because there may be individual parse tokens
    that result in emitting more than one triple -- such as collection
-   elements.)
+   elements.)  Thus the top-level parse function (statement) returns
+   only Error "error text" | OK (Empty ()) | End () (where End
+   indicates end-of-file reached).
 */
 
 char = load yertle.char;
@@ -142,19 +144,26 @@ pnameNS state =
             fi
         esac;
 
-//!!! This is not actually how you expand IRIs relative to a base (see
-//http://www.ietf.org/rfc/rfc3986.txt sec 5.2.2) and we currently fail
-//one of the subm tests because of it
+//!!! This is not strictly how you expand IRIs relative to a base (see
+//http://www.ietf.org/rfc/rfc3986.txt sec 5.2.2)
 resolved state iri =
-    if matchAbsIRI iri then iri
-    else state.base ^ iri
+    if strStarts? "#" iri then state.fileIri ^ iri
+    elif matchAbsIRI iri then iri
+    elif strStarts? "/" iri then state.baseIri ^ (strRight iri 1)
+    else state.baseIri ^ iri
     fi;
-  
+
+withoutFile iri =
+    if strEnds? iri "/" then iri
+    else strLeft iri ((strLastIndexOf' iri "/") + 1)
+    fi;
+
 base state = 
     tokseq state [ whitespace, iriref ] ~>
        \case of
         Token iri: 
-            state.base := resolved state iri;
+            state.baseIri := resolved state iri;
+            state.fileIri := state.baseIri;
             OK (Empty ());
         esac;
                     
@@ -661,11 +670,12 @@ document state =
         esac;
     document' [] state);
 
-newState reader baseIri =
+newState reader fileIri =
    (var nextBnode = 0;
     {
         reader,
-        var base = baseIri,
+        var fileIri = fileIri,
+        var baseIri = withoutFile fileIri,
         pendingTriples = array [],
         namespaces = [:],
         bnodeLabels = [:],

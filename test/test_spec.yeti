@@ -16,6 +16,8 @@ tests = [:];
 
 baseIri = "http://example/base/";
 
+testPath filename = testFileDir ^ "/" ^ filename;
+
 firstResultObjectText results =
     case results of
     [r]:
@@ -46,7 +48,7 @@ metadata mstore iri =
 checkParse isPositive filename =
    (err =
         find \case of Error e: true; _: false esac
-           (parseTurtleFile filename baseIri);
+           (parseTurtleFile (testPath filename) (baseIri ^ filename));
     if isPositive then
         if empty? err then true
         else println "\n** In parsing \(filename):\n   \(head err)"; false fi
@@ -86,7 +88,7 @@ addTest mstore type p =
             do filename:
                 checkParse true filename and
                    (fstore =
-                        case loadTurtleFile filename baseIri of
+                        case loadTurtleFile (testPath filename) (baseIri ^ filename) of
                         Store s: s;
                         Error e: println "Error: \(e)"; newStore ();
                         esac;
@@ -94,11 +96,11 @@ addTest mstore type p =
                     handle = openOutFile outfile "UTF-8";
                     writeNTriplesToHandle handle fstore;
                     handle.close ();
-                    compareNTriples outfile (testFileDir ^ "/" ^ meta.result))
+                    compareNTriples outfile (testPath meta.result))
             done;
         esac;
         tests[meta.name] :=
-          \(try func (testFileDir ^ "/" ^ meta.action);
+          \(try func meta.action;
             catch Exception e: e#printStackTrace(); false;
             yrt);
     fi);
