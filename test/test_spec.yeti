@@ -137,7 +137,5 @@ case manifest of
         );
 esac;
 
-//!!! todo: evaluation tests
-
 tests is hash<string, () -> boolean>;
 
