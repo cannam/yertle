@@ -245,7 +245,6 @@ newBoolLiteral b =
 // Assumes local is known to match the pname local escapes patterns
 // (i.e. if it has any escapes, they will have enough characters in
 // the escaped data)
-//!!! todo: test (getting correct output here is not covered by any spec test)
 unescapeLocal local =
    (unescapeLocal' acc local =
         if local == "" then acc

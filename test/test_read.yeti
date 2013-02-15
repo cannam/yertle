@@ -55,7 +55,7 @@ checkTriples res name =
 checkFailed res name =
    (err = find \case of Error e: true; _: false esac res;
     if empty? err then
-        println "\n** Erroneously accepted \(name) in negative test"; false
+        println "\n** Erroneously accepted \(name) in negative test (result was: \(res))"; false
     else
         true
     fi);
@@ -72,14 +72,15 @@ tests = mapIntoHash id do n: \(checkParse "\(testFileDir)/\(n).ttl") done
 
 goodString str =
    (res = parseTurtleString "" str;
-    checkTriples res "string");
+    checkTriples res "string \"\(str)\"");
 
 badString str =
    (res = parseTurtleString "" str;
-    checkFailed res "string");
+    checkFailed res "string \"\(str)\"");
 
 tests["simple-string"]   := \(goodString "<a> <b> <c>.");
-tests["simple-with-a"]   := \(goodString "<a> a <c>.");
+tests["simple-with-a"]   := \(goodString "<a> a <c> .");
+tests["empty-prefixes"]  := \(goodString "@prefix : <>. :a :b :c.");
 
 tests["simplestring"]    := \(badString ".");
 tests["no-dot"]          := \(badString "<a> a <b>");
@@ -87,6 +88,44 @@ tests["ends-with-colon"] := \(badString "<a> a <b>;");
 tests["lit-subject"]     := \(badString "\"a\" a <c>.");
 tests["lit-predicate"]   := \(badString "<a> \"a\" <c>.");
 tests["blank-predicate"] := \(badString "<a> _:a <c>.");
+tests["local-bad"]       := \(badString ":a :b :c ." and
+                              badString "@prefix : <>. :a:b :c ." and
+                              badString "@prefix : <>. :a :b :.c ." and
+                              badString "@prefix : <>. :a :b. :c ." and
+                              badString "@prefix : <>. :a :b ::c");
+tests["local-slash-bad"] := \(badString "@prefix : <>. :\\a :b :c ." and
+                              badString "@prefix : <>. :\\: :b :c ." and
+                              badString "@prefix : <>. :\\< :b :c .");
+
+tests["local-colon"] := \(
+    compare (parseTurtleString "" "@prefix : <>. :a: :b :c.")
+        [ Triple { s = IRI "a:", p = IRI "b", o = IRI "c" } ];
+);
+
+tests["local-dot"] := \(
+    compare (parseTurtleString "" "@prefix : <>. :a.b :b..c :c.d.")
+        [ Triple { s = IRI "a.b", p = IRI "b..c", o = IRI "c.d" } ];
+);
+
+tests["prefix-dot"] := \(
+    compare (parseTurtleString "" "@prefix a.b: <a>. a.b:a a.b:b.c a.b:c:d .")
+        [ Triple { s = IRI "aa", p = IRI "ab.c", o = IRI "ac:d" } ];
+);
+
+tests["local-u-escape"] := \(
+    compare (parseTurtleString "" "@prefix : <>.:\u0061bc :a\u0062c :ab\u0063.")
+        [ Triple { s = IRI "abc", p = IRI "abc", o = IRI "abc" } ]
+);
+
+tests["local-pc-escape"] := \(
+    compare (parseTurtleString "" "@prefix : <>.:%61bc :a%62c :ab%63.")
+        [ Triple { s = IRI "abc", p = IRI "abc", o = IRI "abc" } ]
+);
+
+tests["local-slash-escape"] := \(
+    compare (parseTurtleString "" "@prefix : <>.:\\& :a\\#c :ab\\(.")
+        [ Triple { s = IRI "&", p = IRI "a#c", o = IRI "ab(" } ]
+);
 
 tests is hash<string, () -> boolean>;
 
