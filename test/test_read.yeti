@@ -36,24 +36,57 @@ module test.test_read;
 { compare, compareUnordered } = load test.test;
 
 { newStore, enumerate, contains, match } = load yertle.store;
-{ loadTurtleFile, parseTurtleFile } = load yertle.read;
+{ loadTurtleFile, parseTurtleFile, parseTurtleString } = load yertle.read;
 
 testFileDir = "test/ttl";
 
-checkParse filename =
-   (err =
-        find \case of Error e: true; _: false esac
-           (parseTurtleFile "" filename);
-    if empty? err then true
-    else println "\n** In parsing \(filename):\n   \(head err)"; false
+checkTriples res name =
+   (err = find \case of Error e: true; _: false esac res;
+    if empty? err then
+        if empty? res or res == [End ()] then
+            println "\n** No triples returned when parsing \(name)"; false
+        else
+            true
+        fi
+    else
+        println "\n** In parsing \(name):\n   \(head err)"; false
     fi);
 
-(mapIntoHash id do n: \(checkParse "\(testFileDir)/\(n).ttl") done
+checkFailed res name =
+   (err = find \case of Error e: true; _: false esac res;
+    if empty? err then
+        println "\n** Erroneously accepted \(name) in negative test"; false
+    else
+        true
+    fi);
 
+checkParse filename =
+   (res = parseTurtleFile "" filename;
+    checkTriples res filename);
+
+tests = mapIntoHash id do n: \(checkParse "\(testFileDir)/\(n).ttl") done
 [
     "bnode-nested-2", "bnode-nested", "bnode", "boolean", "collections",
     "example1", "example2", "example3", "goblin", "iris", "numbers", "quoted",
-]
+];
 
-) is hash<string, () -> boolean>;
+goodString str =
+   (res = parseTurtleString "" str;
+    checkTriples res "string");
+
+badString str =
+   (res = parseTurtleString "" str;
+    checkFailed res "string");
+
+tests["simple-string"]   := \(goodString "<a> <b> <c>.");
+tests["simple-with-a"]   := \(goodString "<a> a <c>.");
+
+tests["simplestring"]    := \(badString ".");
+tests["no-dot"]          := \(badString "<a> a <b>");
+tests["ends-with-colon"] := \(badString "<a> a <b>;");
+tests["lit-subject"]     := \(badString "\"a\" a <c>.");
+tests["lit-predicate"]   := \(badString "<a> \"a\" <c>.");
+tests["blank-predicate"] := \(badString "<a> _:a <c>.");
+
+tests is hash<string, () -> boolean>;
 
