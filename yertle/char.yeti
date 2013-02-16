@@ -33,6 +33,10 @@
 
 module yertle.char;
 
+/**
+ * Read lines from handle and make them available through a char-by-char
+ * interface with optional regex consumption.
+ */
 reader handle =
    (var line = "";
     var lineno = 0;

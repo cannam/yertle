@@ -95,6 +95,8 @@ tests["local-bad"]       := \(badString ":a :b :c ." and
                               badString "@prefix : <>. :a :b ::c");
 tests["local-slash-bad"] := \(badString "@prefix : <>. :\\a :b :c ." and
                               badString "@prefix : <>. :\\: :b :c ." and
+                              badString "@prefix : <>. :\\  :b :c ." and
+                              badString "@prefix : <>. :\\\\  :b :c ." and
                               badString "@prefix : <>. :\\< :b :c .");
 
 tests["local-colon"] := \(

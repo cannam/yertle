@@ -151,11 +151,16 @@ pnameCandidate state =
    (pnameCandidate' escaped acc r =
         if r.isWhitespace then
             OK (Token acc)
-        elif strIndexOf "#.;,)]" r.next 0 >= 0 and not escaped then
-            OK (Token acc)
+        elif not escaped then
+            if strIndexOf "#;,)]" r.next 0 >= 0 or
+               (r.next == "." and not r.lookingAt likeDotInPN) then
+                OK (Token acc)
+            else
+                escaped = (r.next == '\');
+                pnameCandidate' escaped (acc ^ r.read ()) r;
+            fi
         else
-            escaped = (r.next == '\');
-            pnameCandidate' escaped (acc ^ r.read ()) r;
+            pnameCandidate' false (acc ^ r.read ()) r;
         fi;
     pnameCandidate' false "" state.reader);
 
