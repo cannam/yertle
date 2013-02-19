@@ -36,19 +36,19 @@ module yertle.store;
 index = load yertle.index;
 
 typedef fullnode =
-    IRI string | Blank number |
-        Literal { value is string, type is string, language is string };
+    IRI. string | Blank. number |
+        Literal. { value is string, type is string, language is string };
 
 typedef statement = {
-    s is IRI string | Blank number,
-    p is IRI string,
+    s is IRI. string | Blank. number,
+    p is IRI. string,
     o is fullnode,
 };
 
 typedef pattern = {
-    s is Wildcard () | Known (IRI string | Blank number),
-    p is Wildcard () | Known (IRI string),
-    o is Wildcard () | Known fullnode,
+    s is Wildcard. () | Known. (IRI. string | Blank. number),
+    p is Wildcard. () | Known. (IRI. string),
+    o is Wildcard. () | Known. fullnode,
 };
 
 typedef indextree = hash<fullnode,
