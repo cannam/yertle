@@ -76,7 +76,22 @@ newStore () =
     }
     );
 
-indexable t = array [ t.s, t.p, t.o ];
+acceptedNode n =
+    case n of
+    IRI _: n;
+    Blank _: n;
+    Literal _: n;
+    esac;
+
+acceptedPatNode n =
+    case n of
+    Known _: n;
+    Wildcard _: n;
+    esac;
+
+indexable t = array [ acceptedNode t.s, acceptedNode t.p, acceptedNode t.o ];
+
+indexablePattern t = array [ acceptedPatNode t.s, acceptedPatNode t.p, acceptedPatNode t.o ];
 
 deindex tt = { s = tt[0], p = tt[1], o = tt[2] };
 
@@ -96,7 +111,7 @@ contains st t =
     index.contains (head st.indexes) (indexable t);
 
 match st pat =
-   (tt = indexable pat;
+   (tt = indexablePattern pat;
     map deindex (index.match (index.chooseIndex st.indexes tt) tt));
 
 typedef opaque store = storetype;
