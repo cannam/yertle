@@ -37,12 +37,16 @@ index = load yertle.index;
 
 typedef fullnode =
     IRI. string | Blank. number |
-        Literal. { value is string, type is string, language is string };
+        Literal. { 
+            .value is string,
+            .type is string,
+            .language is string
+        };
 
 typedef statement = {
-    s is IRI. string | Blank. number,
-    p is IRI. string,
-    o is fullnode,
+    .s is IRI. string | Blank. number,
+    .p is IRI. string,
+    .o is fullnode,
 };
 
 typedef statementselector = statement -> fullnode;
@@ -50,9 +54,9 @@ typedef statementselector = statement -> fullnode;
 typedef fullpatnode = Wildcard. () | Known. fullnode;
 
 typedef pattern = {
-    s is Wildcard. () | Known. (IRI. string | Blank. number),
-    p is Wildcard. () | Known. (IRI. string),
-    o is fullpatnode,
+    .s is Wildcard. () | Known. (IRI. string | Blank. number),
+    .p is Wildcard. () | Known. (IRI. string),
+    .o is fullpatnode,
 };
 
 typedef patternselector = pattern -> fullpatnode;
