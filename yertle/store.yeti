@@ -36,11 +36,8 @@ module yertle.store;
 index = load yertle.index;
 
 typedef fullnode =
-    IRI. string |
-    Blank. number |
-    PlainLit. string |
-    TypedLit. { text is string, type is string } |
-    LocalLit. { text is string, lang is string };
+    IRI. string | Blank. number |
+        Literal. { value is string, type is string, language is string };
 
 typedef statement = {
     s is IRI. string | Blank. number,
@@ -48,11 +45,9 @@ typedef statement = {
     o is fullnode,
 };
 
-typedef statementselector =
-    statement -> fullnode;
+typedef statementselector = statement -> fullnode;
 
-typedef fullpatnode =
-    Wildcard. () | Known. fullnode;
+typedef fullpatnode = Wildcard. () | Known. fullnode;
 
 typedef pattern = {
     s is Wildcard. () | Known. (IRI. string | Blank. number),
@@ -60,14 +55,12 @@ typedef pattern = {
     o is fullpatnode,
 };
 
-typedef patternselector = 
-    pattern -> fullpatnode;
+typedef patternselector = pattern -> fullpatnode;
 
-typedef indextree =
-    hash<fullnode,
-         Sub hash<fullnode,
-                  Sub hash<fullnode,
-                           Entry array<fullnode>>>>;
+typedef indextree = hash<fullnode,
+                         Sub hash<fullnode,
+                                  Sub hash<fullnode,
+                                           Entry array<fullnode>>>>;
 
 typedef index = {
     order is list<statementselector>,
