@@ -37,18 +37,33 @@ module test.test_index;
 
 { newIndex, add, remove, enumerate, contains, match, chooseIndex } = load yertle.index;
 
-numberForNode n =
-    case n of
-    "s": 0;
-    "p": 1;
-    "o": 2;
-      _: throw new Exception("Expected s, p, or o, got \(n)");
+orderFor name =
+    case name of
+    "spo": [ (.s), (.p), (.o) ];
+    "pos": [ (.p), (.o), (.s) ];
+    "ops": [ (.o), (.p), (.s) ];
+    "sop": [ (.s), (.o), (.p) ];
+    "pso": [ (.p), (.s), (.o) ];
+    "osp": [ (.o), (.s), (.p) ];
+        _: throw new Exception ("Unsupported index name \(name) in orderFor");
     esac;
 
-newIndexFor name = newIndex (map numberForNode (tail (strSplit "" name))); // "spo" -> ["s","p","o"]
+patternOrderFor name =
+    case name of
+    "spo": [ (.s), (.p), (.o) ];
+    "pos": [ (.p), (.o), (.s) ];
+    "ops": [ (.o), (.p), (.s) ];
+    "sop": [ (.s), (.o), (.p) ];
+    "pso": [ (.p), (.s), (.o) ];
+    "osp": [ (.o), (.s), (.p) ];
+        _: throw new Exception ("Unsupported index name \(name) in patternOrderFor");
+    esac;
 
-triple a b c = array [IRI a, IRI b, IRI c];
-pattern a b c = array [a, b, c];
+newIndexFor name =
+    newIndex (orderFor name) (patternOrderFor name);
+
+triple a b c = { s = IRI a, p = IRI b, o = IRI c };
+pattern a b c = { s = a, p = b, o = c };
 
 testTriple n =
     case n of
@@ -148,8 +163,8 @@ perIndex name =
        add h (testTriple "abc") and
        add h (testTriple "bba") and
        compareUnordered (enumerate h) (match h (testWildcard "***")) and
-       compareUnordered (match h (testWildcard "**a"))
-          [testTriple "aaa", testTriple "bba"]
+       compareUnordered [testTriple "aaa", testTriple "bba"]
+           (match h (testWildcard "**a"))
 ),
 
 ];

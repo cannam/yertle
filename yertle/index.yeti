@@ -33,20 +33,20 @@
 
 module yertle.index;
 
-typedef statement = array<'a>;
+typedef statement = 'a;
 
-typedef pattern = array<'a>;
+typedef pattern = 'a;
 
 typedef indextree = hash<'a, Sub 'b | Entry 'c>;
 
-typedef index = { order is list<number>, tree is indextree };
+typedef index = { order is list<'a>, patternOrder is list<'b>, tree is indextree };
 
-newIndex order = { order, tree = [:] };
+newIndex order patternOrder = { order, patternOrder, tree = [:] };
 
 add ix stmt is index -> statement -> boolean =
     case ix.order of
-    key::rest:
-        node = stmt[key];
+    selector::rest:
+        node = selector stmt;
         if not node in ix.tree then 
             if empty? rest then 
                 ix.tree[node] := Entry stmt;
@@ -67,8 +67,8 @@ add ix stmt is index -> statement -> boolean =
 
 remove ix stmt is index -> statement -> boolean =
     case ix.order of
-    key::rest:
-        node = stmt[key];
+    selector::rest:
+        node = selector stmt;
         if not node in ix.tree then false 
         else
             case ix.tree[node] of
@@ -93,15 +93,15 @@ enumerate ix is index -> list<statement> =
 
 match ix pat is index -> pattern -> list<statement> =
     concat
-       (case ix.order of
-        key::rest:
-           (matching = case pat[key] of
+       (case ix.patternOrder of
+        selector::rest:
+           (matching = case selector pat of
                        Wildcard _: keys ix.tree;
                        Known node: if node in ix.tree then [node] else [] fi;
                        esac;
             map do m:
                 case ix.tree[m] of
-                Sub sub: match { order = rest, tree = sub } pat;
+                Sub sub: match { patternOrder = rest, tree = sub } pat;
                 Entry e: [e];
                 esac
             done matching);
@@ -109,13 +109,21 @@ match ix pat is index -> pattern -> list<statement> =
         esac);
 
 contains ix stmt is index -> statement -> boolean =
-    not empty?
-       (match ix (array (map Known stmt)));
+   (case ix.order of
+    selector::rest:
+       (node = selector stmt;
+        node in ix.tree and
+            case ix.tree[node] of
+            Sub sub: contains { order = rest, tree = sub } stmt;
+            Entry e: true;
+            esac);
+    _: false;
+    esac);
 
-scoreIndexFor pat order is pattern -> 'b -> number =
-    case order of
-    key::rest:
-        case pat[key] of
+scoreIndexFor pat patternOrder is pattern -> 'b -> number =
+    case patternOrder of
+    selector::rest:
+        case selector pat of
         Wildcard _: 0;
         Known _: 16;
         esac + (scoreIndexFor pat rest) / 2;
@@ -123,7 +131,7 @@ scoreIndexFor pat order is pattern -> 'b -> number =
     esac;
 
 chooseIndex ixs pat is list<index> -> pattern -> index =
-   (h = mapIntoHash ((scoreIndexFor pat) . (.order)) id ixs;
+   (h = mapIntoHash ((scoreIndexFor pat) . (.patternOrder)) id ixs;
     best = head (sortBy (>) (keys h));
     h[best]);
 

@@ -45,11 +45,17 @@ typedef statement = {
     o is fullnode,
 };
 
+typedef statementselector = statement -> fullnode;
+
+typedef fullpatnode = Wildcard. () | Known. fullnode;
+
 typedef pattern = {
     s is Wildcard. () | Known. (IRI. string | Blank. number),
     p is Wildcard. () | Known. (IRI. string),
-    o is Wildcard. () | Known. fullnode,
+    o is fullpatnode,
 };
+
+typedef patternselector = pattern -> fullpatnode;
 
 typedef indextree = hash<fullnode,
                          Sub hash<fullnode,
@@ -57,7 +63,9 @@ typedef indextree = hash<fullnode,
                                            Entry array<fullnode>>>>;
 
 typedef index = {
-    order is list<number>, tree is indextree
+    order is list<statementselector>,
+    patternOrder is list<patternselector>,
+    tree is indextree
 };
 
 typedef storetype = {
@@ -66,38 +74,34 @@ typedef storetype = {
 
 newStore () = 
    (desired = [ "spo", "pos", "ops" ];
-    nodemap = [ "s": 0, "p": 1, "o": 2 ];
+    orderMap = [ "s": (.s), "p": (.p), "o": (.o) ];
+    patternOrderMap = [ "s": (.s), "p": (.p), "o": (.o) ];
     {
         indexes =
             map do name:
-                index.newIndex (map (at nodemap) (tail (strSplit "" name)))
+                index.newIndex
+                    (map (at orderMap) (tail (strSplit "" name)))
+                    (map (at patternOrderMap) (tail (strSplit "" name)))
                 done
                 desired
     }
     );
 
-indexable t = array [ t.s, t.p, t.o ];
-
-deindex tt = { s = tt[0], p = tt[1], o = tt[2] };
-
 add st t =
-   (tt = indexable t;
-    all id (map do ix: index.add ix tt done st.indexes));
+    all id (map do ix: index.add ix t done st.indexes);
 
 remove st t =
-   (tt = indexable t;
-    all id (map do ix: index.remove ix tt done st.indexes));
+    all id (map do ix: index.remove ix t done st.indexes);
 
 enumerate st =
-    map deindex (index.enumerate (head st.indexes));
+    index.enumerate (head st.indexes);
 
 contains st t =
     // Doesn't matter which index we use to look up a complete statement
-    index.contains (head st.indexes) (indexable t);
+    index.contains (head st.indexes) t;
 
 match st pat =
-   (tt = indexable pat;
-    map deindex (index.match (index.chooseIndex st.indexes tt) tt));
+    index.match (index.chooseIndex st.indexes pat) pat;
 
 typedef opaque store = storetype;
 
