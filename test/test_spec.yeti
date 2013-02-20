@@ -54,7 +54,7 @@ firstResultObjectText results =
     case results of
     [r]:
         case r.o of 
-        Literal lit: lit.value;
+        PlainLit lit: lit;
         IRI iri: iri;
         _: "";
         esac;

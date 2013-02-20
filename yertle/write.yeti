@@ -71,14 +71,13 @@ writeNode handle node =
         handle.write "<\(asciiEncode u)>";
     Blank b:
         handle.write "_:blank\(b)";
-    Literal l:
-       (handle.write "\"\(asciiEncode l.value)\"";
-        if l.language != "" then
-            handle.write "@\(l.language)";
-        elif l.type != "" then
-            handle.write "^^";
-            writeNode handle (IRI l.type);
-        fi)
+    PlainLit l:
+        handle.write "\"\(asciiEncode l)\"";
+    TypedLit l:
+       (handle.write "\"\(asciiEncode l.text)\"^^";
+        writeNode handle (IRI l.type));
+    LocalLit l:
+        handle.write "\"\(asciiEncode l.text)\"@\(l.lang)";
     esac;
 
 writeNTriplesToHandle handle st =
