@@ -81,13 +81,50 @@ writeNode handle node =
         fi)
     esac;
 
+writeUnterminated handle indent selectors triple =
+   (handle.write (strPad " " indent "");
+    for selectors do sel:
+        writeNode handle (sel triple);
+        handle.write " ";
+    done);
+
+writeUnterminatedTriple handle indent triple =
+    writeUnterminated handle indent [ (.s), (.p), (.o) ] triple;
+
+writeTurtleTriple handle state triple =
+   (case state.subject of
+    None (): writeUnterminatedTriple handle 0 triple;
+    Some sn:
+        if sn == triple.s then
+            case state.predicate of
+            None (): throw new Exception
+                         ("Previous triple had subject but no predicate?!");
+            Some pn:
+                if pn == triple.p then
+                    handle.write ",\n";
+                    writeUnterminated handle 8 [ (.o) ] triple;
+                else
+                    handle.write ";\n";
+                    writeUnterminated handle 4 [ (.p), (.o) ] triple;
+                fi;
+            esac;
+        else
+            handle.write ".\n\n";
+            writeUnterminatedTriple handle 0 triple;
+        fi
+    esac;
+    state with { subject = Some triple.s, predicate = Some triple.p });
+
 writeNTriplesToHandle handle st =
     for (store.enumerate st) do t:
-        for [ (.s), (.p), (.o) ] do sel:
-            writeNode handle (sel t);
-            handle.write " ";
-        done;
+        writeUnterminatedTriple handle 0 t;
         handle.write ".\n";
     done;
 
-{ writeNTriplesToHandle }
+writeTurtleToHandle handle st =
+   \() (fold
+            (writeTurtleTriple handle)
+            { subject = None (), predicate = None (), indent = 0 }
+            (store.enumerate st));
+
+{ writeNTriplesToHandle, writeTurtleToHandle }
