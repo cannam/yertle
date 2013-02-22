@@ -82,7 +82,10 @@ newStore () =
     orderMap = [ "s": (.s), "p": (.p), "o": (.o) ];
     patternOrderMap = [ "s": (.s), "p": (.p), "o": (.o) ];
     {
-        prefixes = [:],
+        prefixes = [
+            "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+            "xsd": "http://www.w3.org/2001/XMLSchema#"
+        ],
         indexes =
             map do name:
                 index.newIndex

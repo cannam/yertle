@@ -747,10 +747,12 @@ loadTurtleFile baseIri filename =
                 Error e: Error e;
                 Prefix { fst, snd }:
                     if fst == "" then OK () // Don't add empty prefix to store
+                    elif fst in (store.prefixes st) then OK () // Don't override
                     else OK (store.addPrefix st fst snd) fi;
                 Triple t:
                     if store.add st t then OK ()
-                    else Error "Add failed for triple \(t)" fi;
+                    else Error "Add failed for triple \(t)"
+                    fi;
                 esac
             esac   
         done
