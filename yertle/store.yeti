@@ -35,6 +35,8 @@ module yertle.store;
 
 index = load yertle.index;
 
+typedef iri = IRI string;
+
 typedef fullnode =
     IRI. string | Blank. number |
         Literal. { 
@@ -117,11 +119,34 @@ addPrefix st prefix iri =
 
 prefixes st = st.prefixes;
 
+expand st pname =
+    if pname == "a" then 
+        expand st "rdf:type"
+    else
+        case list (strSplit ":" pname) of
+        pfx::rest:
+            if pfx in st.prefixes then
+                IRI (st.prefixes[pfx] ^ (strJoin ":" rest))
+            else
+                IRI pname
+            fi;
+         _: IRI pname
+        esac
+    fi;
+
 typedef opaque store = storetype;
 
-{ newStore, add, remove, enumerate, contains, match, addPrefix, prefixes }
-as
-{
+{ 
+newStore, 
+add, 
+remove, 
+enumerate, 
+contains, 
+match, 
+addPrefix, 
+prefixes, 
+expand
+} as {
 newStore is () -> store,
 add is store -> triple -> boolean,
 remove is store -> triple -> boolean,
@@ -130,6 +155,7 @@ contains is store -> triple -> boolean,
 match is store -> pattern -> list<triple>,
 addPrefix is store -> string -> string -> (),
 prefixes is store -> hash<string, string>,
+expand is store -> string -> iri,
 }
 
 
