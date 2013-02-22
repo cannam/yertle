@@ -1,0 +1,17 @@
+
+module yertle.blank;
+
+newBlankNodeId =
+   (var nextId = 0;
+      \(synchronized nextId do:
+            nextId := nextId + 1;
+            nextId
+        done)
+    );
+
+newBlankNode () = Blank (newBlankNodeId ());
+
+{ newBlankNodeId, newBlankNode }
+
+
+    

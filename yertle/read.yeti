@@ -56,6 +56,7 @@ store = load yertle.store;
 
 load yertle.parsebits;
 load yertle.ttlre; // Regex matchers for Turtle lexical elements
+load yertle.blank;
 
 import java.lang: Character;
 import java.io: StringReader, BufferedReader;
@@ -305,12 +306,9 @@ aOrPrefixedName state =
         Token t: prefixExpanded state t;
         esac;
 
-newBlankNode state =
-    Blank state.newBlankNodeId;
-
 blankNodeFor state b =
    (if not b in state.bnodeLabels then
-        state.bnodeLabels[b] := newBlankNode state;
+        state.bnodeLabels[b] := newBlankNode ();
     fi;
     state.bnodeLabels[b]);
 
@@ -348,7 +346,7 @@ collection state =
             if empty? rest then
                 emit state { s = node, p = rdfRestIRI, o = rdfNilIRI };
             else
-                nextNode = newBlankNode state;
+                nextNode = newBlankNode ();
                 emit state { s = node, p = rdfRestIRI, o = nextNode };
                 addObjects nextNode state rest;
             fi);
@@ -360,7 +358,7 @@ collection state =
             case objects of
             []: required ")" state ~> \(OK rdfNilIRI);
              _:
-               (headnode = newBlankNode state;
+               (headnode = newBlankNode ();
                 addObjects headnode state objects;
                 required ")" state ~> \(OK headnode));
             esac done));
@@ -631,7 +629,7 @@ blankNodePropertyList state =
     punctuation "[" state ~>
       \(predicateObjectList state ~>
            \case of POList polist:
-               (bnode = newBlankNode state;
+               (bnode = newBlankNode ();
                 emitWithSubject state bnode polist ~>
                    \(punctuation "]" state) ~>
                        \(OK bnode));
@@ -710,7 +708,6 @@ document state =
     document' [] state);
 
 newState reader fileIri =
-   (var nextBnode = 0;
     {
         reader,
         var fileIri = fileIri,
@@ -718,10 +715,7 @@ newState reader fileIri =
         pendingTriples = array [],
         namespaces = [:],
         bnodeLabels = [:],
-        get newBlankNodeId () =
-           (nextBnode := nextBnode + 1;
-            nextBnode);
-    });
+    };
 
 parse baseIri reader =
     document (newState reader baseIri);
@@ -736,7 +730,7 @@ parseTurtleString baseIri str =
     parseTurtleHandle baseIri
         (readerHandle (new BufferedReader(new StringReader(str))));
 
-//!!! load to new store. loading into an existing store depends on proper global handling of blank nodes, which is still pending
+// Load to a new store
 loadTurtleFile baseIri filename = 
    (st = store.newStore ();
     fold
