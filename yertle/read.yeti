@@ -41,14 +41,14 @@ module yertle.read;
    pass result to the right side if it was OK something, or else
    return the error) is used extensively for control flow.
 
-   Only partially constructed triples are returned as values from
-   functions: when a triple is completed, it is "emitted" and added to
-   the pending triples in the state object rather than being returned.
-   (This is necessary because there may be individual parse tokens
-   that result in emitting more than one triple -- such as collection
-   elements.)  Thus the top-level parse function (statement) returns
-   only Error "error text" | OK (Empty ()) | End () (where End
-   indicates end-of-file reached).
+   Only namespace prefixes and partially constructed triples are
+   returned as values from functions: when a triple is completed, it
+   is "emitted" and added to the pending triples in the state object
+   rather than being returned.  (This is necessary because there may
+   be individual parse tokens that result in emitting more than one
+   triple -- such as collection elements.)  Thus the top-level parse
+   function (statement) returns only Error "error text" | OK (Empty
+   ()) | End () (where End indicates end-of-file reached).
 */
 
 char = load yertle.char;
@@ -209,8 +209,9 @@ prefix state =
        \case of Token pname:
             tokseq state [ whitespace, iriref ] ~>
                \case of Token iri:
-                    state.namespaces[pname] := resolved state iri;
-                    OK (Empty ());
+                   (res = resolved state iri;
+                    state.prefixes[pname] := res;
+                    OK (Prefix (pair pname res)));
                 esac;
         esac;
        
@@ -234,8 +235,10 @@ directive state =
     case state.reader.next of
     "@": langtag state ~>
             \case of
-             Token "prefix": noseq state [ prefix, punctuation "." ];
-             Token   "base": noseq state [ base,   punctuation "." ];
+             Token "prefix":
+                 prefix state ~> do r: punctuation "." state ~> \(OK r) done;
+             Token "base":
+                 noseq state [ base, punctuation "." ];
              Token t: Error "Expected base or prefix, found '\(t)' at \(state.reader.location)";
              esac;
     "B": sparqlBase state;
@@ -274,10 +277,10 @@ unescapeLocal local =
 prefixExpanded state text =
     case matchAllPName text of
     [M [whole, prefix, local]]:
-        if prefix in state.namespaces then
+        if prefix in state.prefixes then
             try
                 OK (IRI (resolved state
-                            (state.namespaces[prefix] ^ unescapeLocal local)));
+                            (state.prefixes[prefix] ^ unescapeLocal local)));
             catch NumberFormatException _:
                 Error "Malformed escape in local name '\(local)' before \(state.reader.location)";
             yrt
@@ -697,6 +700,8 @@ document state =
                (triples = map Triple state.pendingTriples;
                 clearArray state.pendingTriples;
                 document' triples state);
+            OK (Prefix p):
+                (Prefix p) :. \(document' [] state);
             Error e:
                (state.reader.close ();
                 [Error e]);
@@ -713,7 +718,7 @@ newState reader fileIri =
         var fileIri = fileIri,
         var baseIri = withoutFile fileIri,
         pendingTriples = array [],
-        namespaces = [:],
+        prefixes = [:],
         bnodeLabels = [:],
     };
 
@@ -740,6 +745,9 @@ loadTurtleFile baseIri filename =
             OK ():
                 case item of
                 Error e: Error e;
+                Prefix { fst, snd }:
+                    if fst == "" then OK () // Don't add empty prefix to store
+                    else OK (store.addPrefix st fst snd) fi;
                 Triple t:
                     if store.add st t then OK ()
                     else Error "Add failed for triple \(t)" fi;

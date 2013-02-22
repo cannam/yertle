@@ -67,13 +67,14 @@ typedef indextree = hash<fullnode,
                                            Entry array<fullnode>>>>;
 
 typedef index = {
-    order is list<tripleselector>,
-    patternOrder is list<patternselector>,
-    tree is indextree
+    .order is list<tripleselector>,
+    .patternOrder is list<patternselector>,
+    .tree is indextree
 };
 
 typedef storetype = {
-    indexes is list<index>,
+    .prefixes is hash<string, string>,
+    .indexes is list<index>,
 };
 
 newStore () = 
@@ -81,6 +82,7 @@ newStore () =
     orderMap = [ "s": (.s), "p": (.p), "o": (.o) ];
     patternOrderMap = [ "s": (.s), "p": (.p), "o": (.o) ];
     {
+        prefixes = [:],
         indexes =
             map do name:
                 index.newIndex
@@ -107,9 +109,14 @@ contains st t =
 match st pat =
     index.match (index.chooseIndex st.indexes pat) pat;
 
+addPrefix st prefix iri =
+    st.prefixes[prefix] := iri;
+
+prefixes st = st.prefixes;
+
 typedef opaque store = storetype;
 
-{ newStore, add, remove, enumerate, contains, match }
+{ newStore, add, remove, enumerate, contains, match, addPrefix, prefixes }
 as
 {
 newStore is () -> store,
@@ -117,7 +124,9 @@ add is store -> triple -> boolean,
 remove is store -> triple -> boolean,
 enumerate is store -> list<triple>,
 contains is store -> triple -> boolean,
-match is store -> pattern -> list<triple>
+match is store -> pattern -> list<triple>,
+addPrefix is store -> string -> string -> (),
+prefixes is store -> hash<string, string>,
 }
 
 

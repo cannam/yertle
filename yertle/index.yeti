@@ -54,11 +54,11 @@ add ix stmt is index -> statement -> boolean =
             else
                 sub = [:];
                 ix.tree[node] := Sub sub;
-                add { order = rest, tree = sub } stmt;
+                add (ix with { order = rest, tree = sub }) stmt;
             fi;
         else
             case ix.tree[node] of
-                Sub sub: add { order = rest, tree = sub } stmt;
+                Sub sub: add (ix with { order = rest, tree = sub }) stmt;
                 Entry s: empty? rest and s == stmt;
             esac;
         fi;
@@ -72,7 +72,7 @@ remove ix stmt is index -> statement -> boolean =
         if not node in ix.tree then false 
         else
             case ix.tree[node] of
-                Sub sub: remove { order = rest, tree = sub } stmt;
+                Sub sub: remove (ix with { order = rest, tree = sub }) stmt;
                 Entry s: empty? rest and (delete ix.tree node; true);
             esac;
         fi;
@@ -101,7 +101,7 @@ match ix pat is index -> pattern -> list<statement> =
                        esac;
             map do m:
                 case ix.tree[m] of
-                Sub sub: match { patternOrder = rest, tree = sub } pat;
+                Sub sub: match (ix with { patternOrder = rest, tree = sub }) pat;
                 Entry e: [e];
                 esac
             done matching);
@@ -114,7 +114,7 @@ contains ix stmt is index -> statement -> boolean =
        (node = selector stmt;
         node in ix.tree and
             case ix.tree[node] of
-            Sub sub: contains { order = rest, tree = sub } stmt;
+            Sub sub: contains (ix with { order = rest, tree = sub }) stmt;
             Entry e: true;
             esac);
     _: false;
