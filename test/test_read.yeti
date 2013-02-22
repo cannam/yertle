@@ -101,32 +101,38 @@ tests["local-slash-bad"] := \(badString "@prefix : <>. :\\a :b :c ." and
 
 tests["local-colon"] := \(
     compare (parseTurtleString "" "@prefix : <>. :a: :b :c.")
-        [ Triple { s = IRI "a:", p = IRI "b", o = IRI "c" } ];
+        [ Prefix { fst = "", snd = "" },
+          Triple { s = IRI "a:", p = IRI "b", o = IRI "c" } ];
 );
 
 tests["local-dot"] := \(
     compare (parseTurtleString "" "@prefix : <>. :a.b :b..c :c.d.")
-        [ Triple { s = IRI "a.b", p = IRI "b..c", o = IRI "c.d" } ];
+        [ Prefix { fst = "", snd = "" },
+          Triple { s = IRI "a.b", p = IRI "b..c", o = IRI "c.d" } ];
 );
 
 tests["prefix-dot"] := \(
     compare (parseTurtleString "" "@prefix a.b: <a>. a.b:a a.b:b.c a.b:c:d .")
-        [ Triple { s = IRI "aa", p = IRI "ab.c", o = IRI "ac:d" } ];
+        [ Prefix { fst = "a.b", snd = "a" },
+          Triple { s = IRI "aa", p = IRI "ab.c", o = IRI "ac:d" } ];
 );
 
 tests["local-u-escape"] := \(
     compare (parseTurtleString "" "@prefix : <>.:\u0061bc :a\u0062c :ab\u0063.")
-        [ Triple { s = IRI "abc", p = IRI "abc", o = IRI "abc" } ]
+        [ Prefix { fst = "", snd = "" },
+          Triple { s = IRI "abc", p = IRI "abc", o = IRI "abc" } ]
 );
 
 tests["local-pc-escape"] := \(
     compare (parseTurtleString "" "@prefix : <>.:%61bc :a%62c :ab%63.")
-        [ Triple { s = IRI "abc", p = IRI "abc", o = IRI "abc" } ]
+        [ Prefix { fst = "", snd = "" },
+          Triple { s = IRI "abc", p = IRI "abc", o = IRI "abc" } ]
 );
 
 tests["local-slash-escape"] := \(
     compare (parseTurtleString "" "@prefix : <>.:\\& :a\\#c :ab\\(.")
-        [ Triple { s = IRI "&", p = IRI "a#c", o = IRI "ab(" } ]
+        [ Prefix { fst = "", snd = "" },
+          Triple { s = IRI "&", p = IRI "a#c", o = IRI "ab(" } ]
 );
 
 tests is hash<string, () -> boolean>;
