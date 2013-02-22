@@ -43,13 +43,13 @@ typedef fullnode =
             .language is string
         };
 
-typedef statement = {
+typedef triple = {
     .s is IRI. string | Blank. number,
     .p is IRI. string,
     .o is fullnode,
 };
 
-typedef statementselector = statement -> fullnode;
+typedef tripleselector = triple -> fullnode;
 
 typedef fullpatnode = Wildcard. () | Known. fullnode;
 
@@ -67,7 +67,7 @@ typedef indextree = hash<fullnode,
                                            Entry array<fullnode>>>>;
 
 typedef index = {
-    order is list<statementselector>,
+    order is list<tripleselector>,
     patternOrder is list<patternselector>,
     tree is indextree
 };
@@ -101,7 +101,7 @@ enumerate st =
     index.enumerate (head st.indexes);
 
 contains st t =
-    // Doesn't matter which index we use to look up a complete statement
+    // Doesn't matter which index we use to look up a complete triple
     index.contains (head st.indexes) t;
 
 match st pat =
@@ -113,11 +113,11 @@ typedef opaque store = storetype;
 as
 {
 newStore is () -> store,
-add is store -> statement -> boolean,
-remove is store -> statement -> boolean,
-enumerate is store -> list<statement>,
-contains is store -> statement -> boolean,
-match is store -> pattern -> list<statement>
+add is store -> triple -> boolean,
+remove is store -> triple -> boolean,
+enumerate is store -> list<triple>,
+contains is store -> triple -> boolean,
+match is store -> pattern -> list<triple>
 }
 
 
