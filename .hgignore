@@ -1,4 +1,7 @@
 syntax: glob
 *~
 *.orig
+*.class
+*.so
+*.jar
 test/out/*
