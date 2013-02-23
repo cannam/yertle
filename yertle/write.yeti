@@ -81,19 +81,47 @@ writeNode handle node =
         fi)
     esac;
 
-writeUnterminated handle indent selectors triple =
-   (handle.write (strPad " " indent "");
+writeAbbreviatedNode handle state node =
+    case node of
+    IRI u:
+        abbr = store.condense state.store node;
+        if abbr == u then
+            handle.write "<\(asciiEncode u)>";
+        else
+            handle.write abbr;
+        fi;
+    Blank b:
+        handle.write "_:blank\(b)";
+    Literal l:
+        if l.language != "" then
+            handle.write "\"\(asciiEncode l.value)\"@\(l.language)";
+        elif l.type != "" then
+            handle.write "^^";
+            writeAbbreviatedNode handle state (IRI l.type);
+        else
+            handle.write "\"\(asciiEncode l.value)\"";
+        fi;
+    esac;
+
+writeUnterminated handle state selectors triple =
+   (handle.write (strPad " " state.indent "");
     for selectors do sel:
-        writeNode handle (sel triple);
+        writeAbbreviatedNode handle state (sel triple);
         handle.write " ";
     done);
 
-writeUnterminatedTriple handle indent triple =
-    writeUnterminated handle indent [ (.s), (.p), (.o) ] triple;
+writeUnterminatedTriple handle state triple =
+    writeUnterminated handle state [ (.s), (.p), (.o) ] triple;
+
+writeNTriple handle triple = // no state needed for NTriples
+    for [ (.s), (.p), (.o) ] do sel:
+        writeNode handle (sel triple);
+        handle.write " ";
+    done;
 
 writeTurtleTriple handle state triple =
    (case state.subject of
-    None (): writeUnterminatedTriple handle 0 triple;
+    None (): writeUnterminatedTriple handle state triple;
     Some sn:
         if sn == triple.s then
             case state.predicate of
@@ -102,29 +130,31 @@ writeTurtleTriple handle state triple =
             Some pn:
                 if pn == triple.p then
                     handle.write ",\n";
-                    writeUnterminated handle 8 [ (.o) ] triple;
+                    writeUnterminated handle
+                        (state with { indent = 8 }) [ (.o) ] triple;
                 else
                     handle.write ";\n";
-                    writeUnterminated handle 4 [ (.p), (.o) ] triple;
+                    writeUnterminated handle 
+                        (state with { indent = 4 }) [ (.p), (.o) ] triple;
                 fi;
             esac;
         else
             handle.write ".\n\n";
-            writeUnterminatedTriple handle 0 triple;
+            writeUnterminatedTriple handle state triple;
         fi
     esac;
     state with { subject = Some triple.s, predicate = Some triple.p });
 
 writeNTriplesToHandle handle st =
     for (store.enumerate st) do t:
-        writeUnterminatedTriple handle 0 t;
+        writeNTriple handle t;
         handle.write ".\n";
     done;
 
 writeTurtleToHandle handle st =
    \() (fold
             (writeTurtleTriple handle)
-            { subject = None (), predicate = None (), indent = 0 }
+            { subject = None (), predicate = None (), indent = 0, store = st }
             (store.enumerate st));
 
 { writeNTriplesToHandle, writeTurtleToHandle }

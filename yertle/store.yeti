@@ -129,6 +129,15 @@ expand' st pname =
         IRI (expand st.prefixes pname);
     fi;
 
+condense' st iri =
+    case iri of
+    IRI i:
+        case condense st.prefixes i of
+        "rdf:type": "a";
+             other: other
+        esac
+    esac;
+
 typedef opaque store = storetype;
 
 { 
@@ -141,7 +150,8 @@ match,
 addPrefix, 
 havePrefix,
 prefixes, 
-expand = expand'
+expand = expand',
+condense = condense'
 } as {
 newStore is () -> store,
 add is store -> triple -> boolean,
@@ -153,6 +163,7 @@ addPrefix is store -> string -> string -> (),
 havePrefix is store -> string -> boolean,
 prefixes is store -> list<string>,
 expand is store -> string -> iri,
+condense is store -> iri -> string
 }
 
 
