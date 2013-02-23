@@ -90,5 +90,16 @@ makeTestMap () =
     and compare (expand m ":fruit") "emptyfruit"
 ),
 
+"condense": \(
+    m = makeTestMap ();
+    compare (condense m "http://example.com/vegetable/aubergine") "veg:aubergine"
+    and compare (condense m "http://example.com/fruit/banana:thing") "fruit:banana:thing"
+    and compare (condense m "http://example.com/fruit/loop/banana") "fruitloop:banana"
+    and compare (condense m "http://example.com/fruit/loop:banana") "fruit:loop:banana"
+    and compare (condense m "http://example.com/fruit/") "fruit:"
+    and compare (condense m "fruit") "fruit"
+    and compare (condense m "emptyfruit") ":fruit"
+),
+
 ] is hash<string, () -> boolean>;
 
