@@ -1,0 +1,81 @@
+/*
+    Yertle
+    RDF/Turtle parser module
+
+    Copyright (c) 2013 Chris Cannam
+    Copyright (c) 2013 Queen Mary, University of London
+  
+    Permission is hereby granted, free of charge, to any person
+    obtaining a copy of this software and associated documentation
+    files (the "Software"), to deal in the Software without
+    restriction, including without limitation the rights to use, copy,
+    modify, merge, publish, distribute, sublicense, and/or sell copies
+    of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be
+    included in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR
+    ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+    CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+    WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+    Except as contained in this notice, the names of the Centre for
+    Digital Music; Queen Mary, University of London; and Chris Cannam
+    shall not be used in advertising or otherwise to promote the sale,
+    use or other dealings in this Software without prior written
+    authorization.
+*/
+
+module yertle.prefix;
+
+import java.util: TreeMap;
+
+newPrefixMap () = {
+    forward = [:],
+    reverse = new TreeMap()
+};
+
+expand pm pname =
+    case list (strSplit ":" pname) of
+    pfx::rest:
+        if pfx in pm.forward then
+            pm.forward[pfx] ^ (strJoin ":" rest)
+        else
+            pname
+        fi;
+     _: pname
+    esac;
+
+condense pm fullname =
+    fullname;
+
+prefixes pm =
+    keys pm.forward;
+
+typedef opaque prefixmap = {
+    .forward is hash<string, string>,
+    .reverse is ~TreeMap
+};
+
+{
+newPrefixMap,
+expand,
+condense,
+prefixes
+} as {
+newPrefixMap is () -> prefixmap,
+expand is prefixmap -> string -> string,
+condense is prefixmap -> string -> string,
+prefixes is prefixmap -> list<string>
+}
+
+
+
+
+
+

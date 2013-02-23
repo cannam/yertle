@@ -8,6 +8,7 @@ program test.all;
 tests = [
     "index" : load test.test_index,
     "store" : load test.test_store,
+    "prefix" : load test.test_prefix,
     "read" : load test.test_read,
 ];
 
