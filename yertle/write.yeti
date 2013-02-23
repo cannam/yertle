@@ -152,9 +152,17 @@ writeNTriplesToHandle handle st =
     done;
 
 writeTurtleToHandle handle st =
+   (for (store.prefixes st) do pfx:
+        case store.expand st (pfx ^ ":") of
+        IRI iri: 
+            handle.write "@prefix \(pfx): <\(iri)> .\n"
+        esac
+    done;
+    handle.write "\n";
    \() (fold
             (writeTurtleTriple handle)
             { subject = None (), predicate = None (), indent = 0, store = st }
-            (store.enumerate st));
+            (store.enumerate st))
+    );
 
 { writeNTriplesToHandle, writeTurtleToHandle }
