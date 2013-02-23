@@ -40,35 +40,43 @@ newPrefixMap () = {
     reverse = new TreeMap()
 };
 
+typedef pmap = {
+    .forward is hash<string, string>,
+    .reverse is ~TreeMap
+};
+
+addPrefix pm pfx iri is pmap -> string -> string -> () =
+   (pm.forward[pfx] := iri;
+    do _: () done pm.reverse#put(iri, pfx));
+
 expand pm pname =
-    case list (strSplit ":" pname) of
-    pfx::rest:
-        if pfx in pm.forward then
-            pm.forward[pfx] ^ (strJoin ":" rest)
-        else
-            pname
-        fi;
-     _: pname
-    esac;
+   (n = strIndexOf pname ":" 0;
+    if n < 0 then pname
+    else
+        pfx = strLeft pname n;
+        if pfx in pm.forward then pm.forward[pfx] ^ (strRight pname (n+1))
+        else pname
+        fi
+    fi);
 
 condense pm fullname =
+//!!! use TreeMap.ceilingEntry
     fullname;
 
 prefixes pm =
     keys pm.forward;
 
-typedef opaque prefixmap = {
-    .forward is hash<string, string>,
-    .reverse is ~TreeMap
-};
+typedef opaque prefixmap = pmap;
 
 {
 newPrefixMap,
+addPrefix,
 expand,
 condense,
 prefixes
 } as {
 newPrefixMap is () -> prefixmap,
+addPrefix is prefixmap -> string -> string -> (),
 expand is prefixmap -> string -> string,
 condense is prefixmap -> string -> string,
 prefixes is prefixmap -> list<string>

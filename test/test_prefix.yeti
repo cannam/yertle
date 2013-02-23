@@ -35,7 +35,15 @@ module test.test_prefix;
 
 { compare, compareUnordered } = load test.test;
 
-{ newPrefixMap, expand, condense, prefixes } = load yertle.prefix;
+{ newPrefixMap, addPrefix, expand, condense, prefixes } = load yertle.prefix;
+
+makeTestMap () =
+   (m = newPrefixMap ();
+    addPrefix m "fruit" "http://example.com/fruit/";
+    addPrefix m "fruitloop" "http://example.com/fruit/loop/";
+    addPrefix m "veg" "http://example.com/vegetable/";
+    addPrefix m "" "empty";
+    m);
 
 [
 
@@ -49,6 +57,37 @@ module test.test_prefix;
 
 "empty-condense": \(
     compare (condense (newPrefixMap ()) "a:b") "a:b";
+),
+
+"add": \(
+    m = newPrefixMap ();
+    addPrefix m "a" "b";
+    compareUnordered (prefixes m) ["a"];
+),
+
+"add-another": \(
+    m = newPrefixMap ();
+    addPrefix m "a" "b";
+    addPrefix m "aa" "bb";
+    compareUnordered (prefixes m) ["a", "aa"];
+),
+
+"replace": \(
+    m = newPrefixMap ();
+    addPrefix m "a" "b";
+    addPrefix m "a" "bb";
+    compareUnordered (prefixes m) ["a"];
+),
+
+"expand": \(
+    m = makeTestMap ();
+    compare (expand m "veg:aubergine") "http://example.com/vegetable/aubergine"
+    and compare (expand m "fruit:banana:thing") "http://example.com/fruit/banana:thing"
+    and compare (expand m "fruitloop:banana") "http://example.com/fruit/loop/banana"
+    and compare (expand m "fruit:loop/banana") "http://example.com/fruit/loop/banana"
+    and compare (expand m "fruit:") "http://example.com/fruit/"
+    and compare (expand m "fruit") "fruit"
+    and compare (expand m ":fruit") "emptyfruit"
 ),
 
 ] is hash<string, () -> boolean>;
