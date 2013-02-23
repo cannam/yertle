@@ -41,17 +41,18 @@ Current status
    http://www.w3.org/2011/rdf-wg/wiki/Turtle_Test_Suite,
    https://dvcs.w3.org/hg/rdf/raw-file/default/rdf-turtle/tests-ttl/manifest.ttl
 
-   However, I'm aware of some things the W3C tests don't cover and
-   there are more tests to be added before I (and you) can be
-   confident the parser is correct.
+   There are also a few additional tests covering things not covered
+   by the spec tests, see test/test_read.yeti.
 
- * The serialiser writes N-Triples only, not yet Turtle.
+ * The serialiser may produce valid Turtle, but only by accident. It
+   doesn't write blank node [] or container () syntax, can't produce
+   numeric or boolean literals in "natural" form, doesn't know about
+   base IRIs, and doesn't yet have a test suite.
 
- * The datastore can store and do indexed retrieval, but it lacks any
-   conveniences (e.g. prefix expansion) and the implementation is
-   still in flux.
+ * The datastore can store and do indexed retrieval, but it lacks many
+   conveniences and the implementation is still in flux.
 
- * There's no build/package mechanism yet
+ * There's no build/package mechanism yet.
 
 To build and run the tests, just run the Yeti compiler (yc) on
 test/all.yeti.
@@ -66,4 +67,5 @@ Author
 ------
 
 Chris Cannam, cannam@all-day-breakfast.com
+February 2013
 
