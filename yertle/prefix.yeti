@@ -37,17 +37,18 @@ import java.util: TreeMap;
 
 newPrefixMap () = {
     forward = [:],
-    reverse = new TreeMap()
+    inverse = new TreeMap()
 };
 
 typedef pmap = {
     .forward is hash<string, string>,
-    .reverse is ~TreeMap
+    .inverse is ~TreeMap
 };
 
 addPrefix pm pfx iri is pmap -> string -> string -> () =
    (pm.forward[pfx] := iri;
-    do _: () done pm.reverse#put(iri, pfx));
+    do _: () done 
+       (println "putting \(iri) -> \(pfx)"; pm.inverse#put(iri, pfx)));
 
 expand pm pname =
    (n = strIndexOf pname ":" 0;
@@ -59,9 +60,19 @@ expand pm pname =
         fi
     fi);
 
-condense pm fullname =
-//!!! use TreeMap.ceilingEntry
-    fullname;
+condense pm fullname is pmap -> string -> string =
+   (entry = pm.inverse#floorEntry(fullname);
+    println "condense: pm is \(pm)";
+    if nullptr? entry then fullname
+    else
+        pfx = entry#getKey() unsafely_as string;
+        if strStarts? fullname pfx then
+           (entry#getValue() unsafely_as string) ^ ":" ^
+               (strRight fullname (strLength pfx));
+        else
+            fullname
+        fi
+    fi);
 
 prefixes pm =
     keys pm.forward;
