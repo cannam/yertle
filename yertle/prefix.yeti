@@ -33,64 +33,63 @@
 
 module yertle.prefix;
 
-import java.util: TreeMap;
-
-newPrefixMap () = {
-    forward = [:],
-    inverse = new TreeMap()
-};
-
-typedef pmap = {
+typedef ptable = {
     .forward is hash<string, string>,
-    .inverse is ~TreeMap
+    .inverse is hash<string, string>
 };
 
-addPrefix pm pfx iri is pmap -> string -> string -> () =
-   (pm.forward[pfx] := iri;
-    do _: () done 
-       (println "putting \(iri) -> \(pfx)"; pm.inverse#put(iri, pfx)));
+newPrefixTable () is () -> ptable = {
+    forward = [:],
+    inverse = [:]
+};
 
-expand pm pname =
+addPrefix ptab pfx iri is ptable -> string -> string -> () =
+   (ptab.forward[pfx] := iri;
+    ptab.inverse[iri] := pfx);
+
+expand ptab pname =
    (n = strIndexOf pname ":" 0;
     if n < 0 then pname
     else
         pfx = strLeft pname n;
-        if pfx in pm.forward then pm.forward[pfx] ^ (strRight pname (n+1))
+        if pfx in ptab.forward then ptab.forward[pfx] ^ (strRight pname (n+1))
         else pname
         fi
     fi);
 
-condense pm fullname is pmap -> string -> string =
-   (entry = pm.inverse#floorEntry(fullname);
-    println "condense: pm is \(pm)";
-    if nullptr? entry then fullname
+condense ptab fullname is ptable -> string -> string =
+    // Might be nice to do this in a more scalable way, but I can't
+    // help thinking that for most of our use cases this will actually
+    // be quicker. It'll do for now
+   (pfx =
+        fold do best k:
+            if strStarts? fullname k and strLength k > strLength best then k
+            else best
+            fi
+        done "" (keys ptab.inverse);
+    if pfx != "" then
+        ptab.inverse[pfx] ^ ":" ^ (strRight fullname (strLength pfx))
     else
-        pfx = entry#getKey() unsafely_as string;
-        if strStarts? fullname pfx then
-           (entry#getValue() unsafely_as string) ^ ":" ^
-               (strRight fullname (strLength pfx));
-        else
-            fullname
-        fi
+        fullname
     fi);
 
-prefixes pm =
-    keys pm.forward;
+prefixes ptab =
+    keys ptab.forward;
 
-typedef opaque prefixmap = pmap;
+typedef opaque prefixtable = ptable;
 
 {
-newPrefixMap,
+newPrefixTable,
 addPrefix,
 expand,
 condense,
 prefixes
 } as {
-newPrefixMap is () -> prefixmap,
-addPrefix is prefixmap -> string -> string -> (),
-expand is prefixmap -> string -> string,
-condense is prefixmap -> string -> string,
-prefixes is prefixmap -> list<string>
+newPrefixTable is () -> prefixtable,
+addPrefix is prefixtable -> string -> string -> (),
+expand is prefixtable -> string -> string,
+condense is prefixtable -> string -> string,
+prefixes is prefixtable -> list<string>
 }
 
 

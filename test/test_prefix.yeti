@@ -35,10 +35,10 @@ module test.test_prefix;
 
 { compare, compareUnordered } = load test.test;
 
-{ newPrefixMap, addPrefix, expand, condense, prefixes } = load yertle.prefix;
+{ newPrefixTable, addPrefix, expand, condense, prefixes } = load yertle.prefix;
 
-makeTestMap () =
-   (m = newPrefixMap ();
+makeTestTable () =
+   (m = newPrefixTable ();
     addPrefix m "fruit" "http://example.com/fruit/";
     addPrefix m "fruitloop" "http://example.com/fruit/loop/";
     addPrefix m "veg" "http://example.com/vegetable/";
@@ -48,39 +48,39 @@ makeTestMap () =
 [
 
 "empty": \(
-    compareUnordered (prefixes (newPrefixMap ())) [];
+    compareUnordered (prefixes (newPrefixTable ())) [];
 ),
 
 "empty-expand": \(
-    compare (expand (newPrefixMap ()) "a:b") "a:b";
+    compare (expand (newPrefixTable ()) "a:b") "a:b";
 ),
 
 "empty-condense": \(
-    compare (condense (newPrefixMap ()) "a:b") "a:b";
+    compare (condense (newPrefixTable ()) "a:b") "a:b";
 ),
 
 "add": \(
-    m = newPrefixMap ();
+    m = newPrefixTable ();
     addPrefix m "a" "b";
     compareUnordered (prefixes m) ["a"];
 ),
 
 "add-another": \(
-    m = newPrefixMap ();
+    m = newPrefixTable ();
     addPrefix m "a" "b";
     addPrefix m "aa" "bb";
     compareUnordered (prefixes m) ["a", "aa"];
 ),
 
 "replace": \(
-    m = newPrefixMap ();
+    m = newPrefixTable ();
     addPrefix m "a" "b";
     addPrefix m "a" "bb";
     compareUnordered (prefixes m) ["a"];
 ),
 
 "expand": \(
-    m = makeTestMap ();
+    m = makeTestTable ();
     compare (expand m "veg:aubergine") "http://example.com/vegetable/aubergine"
     and compare (expand m "fruit:banana:thing") "http://example.com/fruit/banana:thing"
     and compare (expand m "fruitloop:banana") "http://example.com/fruit/loop/banana"
@@ -91,7 +91,25 @@ makeTestMap () =
 ),
 
 "condense": \(
-    m = makeTestMap ();
+    m = newPrefixTable ();
+    addPrefix m "1" "a";
+    addPrefix m "2" "ab";
+    addPrefix m "3" "aba";
+    addPrefix m "4" "abba";
+    addPrefix m "5" "abc";
+    addPrefix m "6" "bbc";
+    addPrefix m "7" "bbf";
+    compare (condense m "a") "1:"
+    and compare (condense m "aa") "1:a"
+    and compare (condense m "abc") "5:"
+    and compare (condense m "abd") "2:d"
+    and compare (condense m "bbb") "bbb"
+    and compare (condense m "bbd") "bbd"
+    and compare (condense m "abad") "3:d"
+),    
+
+"condense-lifelike": \(
+    m = makeTestTable ();
     compare (condense m "http://example.com/vegetable/aubergine") "veg:aubergine"
     and compare (condense m "http://example.com/fruit/banana:thing") "fruit:banana:thing"
     and compare (condense m "http://example.com/fruit/loop/banana") "fruitloop:banana"
