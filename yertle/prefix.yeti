@@ -43,9 +43,11 @@ newPrefixTable () is () -> ptable = {
     inverse = [:]
 };
 
-addPrefix ptab pfx iri is ptable -> string -> string -> () =
+addPrefix ptab pfx iri =
    (ptab.forward[pfx] := iri;
     ptab.inverse[iri] := pfx);
+
+havePrefix ptab pfx = pfx in ptab.forward;
 
 expand ptab pname =
    (n = strIndexOf pname ":" 0;
@@ -57,7 +59,7 @@ expand ptab pname =
         fi
     fi);
 
-condense ptab fullname is ptable -> string -> string =
+condense ptab fullname =
     // Might be nice to do this in a more scalable way, but I can't
     // help thinking that for most of our use cases this will actually
     // be quicker. It'll do for now
@@ -73,20 +75,21 @@ condense ptab fullname is ptable -> string -> string =
         fullname
     fi);
 
-prefixes ptab =
-    keys ptab.forward;
+prefixes ptab = keys ptab.forward;
 
 typedef opaque prefixtable = ptable;
 
 {
 newPrefixTable,
 addPrefix,
+havePrefix,
 expand,
 condense,
 prefixes
 } as {
 newPrefixTable is () -> prefixtable,
 addPrefix is prefixtable -> string -> string -> (),
+havePrefix is prefixtable -> string -> boolean,
 expand is prefixtable -> string -> string,
 condense is prefixtable -> string -> string,
 prefixes is prefixtable -> list<string>

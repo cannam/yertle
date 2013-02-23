@@ -44,7 +44,12 @@ outFileDir = "test/out";
 
 manifest = loadTurtleFile "" (testFileDir ^ "/manifest.ttl");
 
-tests = [:];
+tests = [
+// Check this explicitly: we can't do anything else without it
+// (we'd just find 0 tests in the manifest and pass them all)
+"a": \(compare (expand (newStore ()) "a") 
+               (IRI "http://www.w3.org/1999/02/22-rdf-syntax-ns#type")),
+];
 
 baseIri = "http://example/base/";
 
