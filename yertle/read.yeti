@@ -104,6 +104,15 @@ backslashEscape state =
             Error "Unknown escape sequence at \(state.reader.location)"
         fi);
 
+percentEscape state =
+    required "%" state ~>
+      \(chars = state.reader.read () ^ state.reader.read ();
+        try 
+            OK (Token (strJoin "" Character#toChars(number "0x\(chars)")))
+        catch NumberFormatException _:
+            Error "Malformed percent escape '\(chars)' before \(state.reader.location)";
+        yrt);
+
 emit state triple =
     push state.pendingTriples triple;
 
@@ -128,6 +137,11 @@ iriref state =
             unicodeEscape state true ~>
                \case of
                 Token u: iriref' (acc ^ part ^ u) state;
+                esac;
+        elif state.reader.next == "%" then
+            percentEscape state ~>
+               \case of
+                Token p: iriref' (acc ^ part ^ p) state;
                 esac;
         else
             OK (Token (acc ^ part));
