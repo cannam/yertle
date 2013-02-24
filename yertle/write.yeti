@@ -121,13 +121,8 @@ writeAbbreviatedNode handle state node =
         if l.language != "" then
             handle.write "\"\(asciiEncode l.value)\"@\(l.language)";
         elif l.type != "" then
-            if l.type == integerType or l.type == doubleType or 
-               l.type == decimalType or l.type == booleanType then
-                handle.write l.value;
-            else 
-                handle.write "\"\(asciiEncode l.value)\"^^";
-                writeAbbreviatedNode handle state (IRI l.type);
-            fi
+            handle.write "\"\(asciiEncode l.value)\"^^";
+            writeAbbreviatedNode handle state (IRI l.type);
         else
             handle.write "\"\(asciiEncode l.value)\"";
         fi;

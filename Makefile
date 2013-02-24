@@ -10,9 +10,11 @@ SOURCES		:= \
 	yertle/char.yeti \
 	yertle/index.yeti \
 	yertle/parsebits.yeti \
+	yertle/prefix.yeti \
 	yertle/read.yeti \
 	yertle/store.yeti \
 	yertle/ttlre.yeti \
+	yertle/types.yeti \
 	yertle/write.yeti
 
 yertle.jar:	$(SOURCES)
