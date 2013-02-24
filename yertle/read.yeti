@@ -455,7 +455,7 @@ shortStringBody quote state =
                 Token t: shortStringBody' matcher (acc ^ text ^ t) state;
                 esac
         else 
-            OK (Token (text ^ acc))
+            OK (Token (acc ^ text))
         fi);
     tokseq state [ shortStringBody' (likeShortString quote) "", required quote ]);
 
