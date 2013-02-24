@@ -44,10 +44,8 @@ Current status
    There are also a few additional tests covering things not covered
    by the spec tests, see test/test_read.yeti.
 
- * The serialiser may produce valid Turtle, but only by accident. It
-   doesn't write blank node [] or container () syntax, can't produce
-   numeric or boolean literals in "natural" form, doesn't know about
-   base IRIs, and doesn't yet have a test suite.
+ * The serialiser generally works but is rather rudimentary. It can't
+   write container () syntax, and is not thoroughly enough tested yet.
 
  * The datastore can store and do indexed retrieval, but it lacks many
    conveniences and the implementation is still in flux.
