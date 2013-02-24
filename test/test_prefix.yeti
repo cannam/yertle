@@ -35,7 +35,7 @@ module test.test_prefix;
 
 { compare, compareUnordered } = load test.test;
 
-{ newPrefixTable, addPrefix, expand, condense, prefixes } = load yertle.prefix;
+{ newPrefixTable, addPrefix, expand, abbreviate, prefixes } = load yertle.prefix;
 
 makeTestTable () =
    (m = newPrefixTable ();
@@ -55,8 +55,8 @@ makeTestTable () =
     compare (expand (newPrefixTable ()) "a:b") "a:b";
 ),
 
-"empty-condense": \(
-    compare (condense (newPrefixTable ()) "a:b") "a:b";
+"empty-abbreviate": \(
+    compare (abbreviate (newPrefixTable ()) "a:b") "a:b";
 ),
 
 "add": \(
@@ -90,7 +90,7 @@ makeTestTable () =
     and compare (expand m ":fruit") "emptyfruit"
 ),
 
-"condense": \(
+"abbreviate": \(
     m = newPrefixTable ();
     addPrefix m "1" "a";
     addPrefix m "2" "ab";
@@ -99,24 +99,24 @@ makeTestTable () =
     addPrefix m "5" "abc";
     addPrefix m "6" "bbc";
     addPrefix m "7" "bbf";
-    compare (condense m "a") "1:"
-    and compare (condense m "aa") "1:a"
-    and compare (condense m "abc") "5:"
-    and compare (condense m "abd") "2:d"
-    and compare (condense m "bbb") "bbb"
-    and compare (condense m "bbd") "bbd"
-    and compare (condense m "abad") "3:d"
+    compare (abbreviate m "a") "1:"
+    and compare (abbreviate m "aa") "1:a"
+    and compare (abbreviate m "abc") "5:"
+    and compare (abbreviate m "abd") "2:d"
+    and compare (abbreviate m "bbb") "bbb"
+    and compare (abbreviate m "bbd") "bbd"
+    and compare (abbreviate m "abad") "3:d"
 ),    
 
-"condense-lifelike": \(
+"abbreviate-lifelike": \(
     m = makeTestTable ();
-    compare (condense m "http://example.com/vegetable/aubergine") "veg:aubergine"
-    and compare (condense m "http://example.com/fruit/banana:thing") "fruit:banana:thing"
-    and compare (condense m "http://example.com/fruit/loop/banana") "fruitloop:banana"
-    and compare (condense m "http://example.com/fruit/loop:banana") "fruit:loop:banana"
-    and compare (condense m "http://example.com/fruit/") "fruit:"
-    and compare (condense m "fruit") "fruit"
-    and compare (condense m "emptyfruit") ":fruit"
+    compare (abbreviate m "http://example.com/vegetable/aubergine") "veg:aubergine"
+    and compare (abbreviate m "http://example.com/fruit/banana:thing") "fruit:banana:thing"
+    and compare (abbreviate m "http://example.com/fruit/loop/banana") "fruitloop:banana"
+    and compare (abbreviate m "http://example.com/fruit/loop:banana") "fruit:loop:banana"
+    and compare (abbreviate m "http://example.com/fruit/") "fruit:"
+    and compare (abbreviate m "fruit") "fruit"
+    and compare (abbreviate m "emptyfruit") ":fruit"
 ),
 
 ] is hash<string, () -> boolean>;

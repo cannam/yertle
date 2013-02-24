@@ -1,6 +1,6 @@
 /*
     Yertle
-    RDF/Turtle prefix expand and condense
+    RDF/Turtle prefix expand and abbreviate
 
     Copyright (c) 2013 Chris Cannam
     Copyright (c) 2013 Queen Mary, University of London
@@ -59,7 +59,7 @@ expand ptab pname =
         fi
     fi);
 
-condense ptab fullname =
+abbreviate ptab fullname =
    (pfxFor name =
         if name in ptab.inverse or name == "" then name
         else pfxFor (strLeft name ((strLength name) - 1))
@@ -78,14 +78,14 @@ newPrefixTable,
 addPrefix,
 havePrefix,
 expand,
-condense,
+abbreviate,
 prefixes
 } as {
 newPrefixTable is () -> prefixtable,
 addPrefix is prefixtable -> string -> string -> (),
 havePrefix is prefixtable -> string -> boolean,
 expand is prefixtable -> string -> string,
-condense is prefixtable -> string -> string,
+abbreviate is prefixtable -> string -> string,
 prefixes is prefixtable -> list<string>
 }
 

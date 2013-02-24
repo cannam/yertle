@@ -91,7 +91,7 @@ hasBlankObject t = case t.o of Blank _: true; IRI _: false; Literal _: false esa
 writeAbbreviatedNode handle state node =
     case node of
     IRI u:
-        abbr = store.condense state.store node;
+        abbr = store.abbreviate state.store node;
         if abbr == u then
             handle.write "<\(asciiEncode u)>";
         else
