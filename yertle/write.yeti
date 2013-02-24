@@ -63,10 +63,28 @@ asciiEncode text =
                    NotAscii Ascii text))
     );
 
+percentEncode text =
+    // encoding only chars that are ASCII but not legal unescaped in
+    // IRIs in Turtle
+   (encode c =
+       (s = Integer#toHexString(Character#codePointAt(c is string, 0));
+        "%" ^ if (strLength s < 2) then "0" ^ s else s fi);
+    strJoin ""
+       (map
+        \case of
+         Legal t: t;
+         Illegal [c]: encode c;
+         _: ""
+         esac (matchAll "[\\x00-\\x20<>\"{}|^`\\\\%]"
+                   Illegal Legal text));
+    );
+
+iriEncode = asciiEncode . percentEncode;
+
 writeContextFreeNode handle node =
     case node of
     IRI u:
-        handle.write "<\(asciiEncode u)>";
+        handle.write "<\(iriEncode u)>";
     Blank b:
         handle.write "_:blank\(b)";
     Literal l:
@@ -93,9 +111,9 @@ writeAbbreviatedNode handle state node =
     IRI u:
         abbr = store.abbreviate state.store node;
         if abbr == u then
-            handle.write "<\(asciiEncode u)>";
+            handle.write "<\(iriEncode u)>";
         else
-            handle.write abbr;
+            handle.write "\(iriEncode abbr)";
         fi;
     Blank b:
         handle.write "_:blank\(b)";
