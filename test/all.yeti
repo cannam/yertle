@@ -3,8 +3,6 @@ program test.all;
 
 { runTests } = load test.test;
 
-//!!! todo: refactor
-
 tests = [
     "index" : load test.test_index,
     "store" : load test.test_store,
@@ -20,6 +18,7 @@ else
 
     specTests = [
         "spec" : load test.test_spec,
+        "write" : load test.test_write,
     ];
 
     bad = sum (mapHash do name testHash: runTests name testHash done specTests);

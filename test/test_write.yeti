@@ -1,0 +1,132 @@
+/*
+    Yertle
+    RDF/Turtle parser spec tests: writing and re-reading Turtle
+
+    Copyright (c) 2013 Chris Cannam
+    Copyright (c) 2013 Queen Mary, University of London
+  
+    Permission is hereby granted, free of charge, to any person
+    obtaining a copy of this software and associated documentation
+    files (the "Software"), to deal in the Software without
+    restriction, including without limitation the rights to use, copy,
+    modify, merge, publish, distribute, sublicense, and/or sell copies
+    of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be
+    included in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR
+    ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+    CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+    WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+    Except as contained in this notice, the names of the Centre for
+    Digital Music; Queen Mary, University of London; and Chris Cannam
+    shall not be used in advertising or otherwise to promote the sale,
+    use or other dealings in this Software without prior written
+    authorization.
+*/
+
+module test.test_write;
+
+{ compare, compareUnordered } = load test.test;
+
+{ newStore, enumerate, contains, match, expand } = load yertle.store;
+{ loadTurtleFile, parseTurtleFile } = load yertle.read;
+{ writeTurtleToHandle } = load yertle.write;
+
+testFileDir = "test/ttl/spec";
+outFileDir = "test/out";
+
+manifest = loadTurtleFile "" (testFileDir ^ "/manifest.ttl");
+
+tests = [:];
+
+baseIri = "http://example/base/";
+
+testPath filename = testFileDir ^ "/" ^ filename;
+
+//!!! dup with test_spec: refactor
+firstResultObjectText results =
+    case results of
+    [r]:
+        case r.o of 
+        Literal lit: lit.value;
+        IRI iri: iri;
+        _: "";
+        esac;
+     _: "";
+    esac;
+
+metadata mstore iri =
+   (comments = match mstore { s = Known (iri),
+//!!! ideally should be able to say Known (Abbr "rdfs:comment") or similar
+                              p = Known (expand mstore "rdfs:comment"),
+                              o = Wildcard () };
+    actions  = match mstore { s = Known (iri),
+                              p = Known (expand mstore "mf:action"),
+                              o = Wildcard () };
+    results  = match mstore { s = Known (iri),
+                              p = Known (expand mstore "mf:result"),
+                              o = Wildcard () };
+    {
+        name = firstResultObjectText comments,
+        action = firstResultObjectText actions,
+        result = firstResultObjectText results,
+    });
+
+addTest mstore type p =
+   (iri = p.s;
+    meta = metadata mstore iri;
+    if meta.name == "" or meta.action == "" then
+        println "Error: Unable to retrieve test metadata for test: \(iri)";
+    else
+        if case type of Negative (): false; _: true esac then
+            filename = meta.action;
+            tests[meta.name] :=
+              \(fstore =
+                    case loadTurtleFile (baseIri ^ filename) (testPath filename) of
+                    Store s: s;
+                    Error e: println "Error: \(e)"; newStore ();
+                    esac;
+                outfile = outFileDir ^ "/" ^ filename;
+                handle = openOutFile outfile "UTF-8";
+                writeTurtleToHandle handle fstore;
+                handle.close ();
+                case loadTurtleFile (baseIri ^ filename) outfile of
+                Store s:
+                    compareUnordered (enumerate s) (enumerate fstore);
+                Error e: 
+                    println "** failed to reload file \"\(outfile)\" written by Turtle serialiser: \(e)";
+                    false;
+                esac);
+        fi;
+    fi);
+
+case manifest of
+    Error e:
+        println "Error: \(e)";
+        tests["manifest load failed"] := \(false);
+    Store mstore:
+       (if length (enumerate mstore) < 10 then
+            tests["too few tests in manifest: expected 10 or more"] := \(false);
+        fi;
+        for (match mstore { s = Wildcard (),
+                            p = Known (expand mstore "a"),
+                            o = Known (expand mstore "rdft:TestTurtlePositiveSyntax")
+                         })
+            (addTest mstore (Positive ()));
+        for (match mstore { s = Wildcard (),
+                            p = Known (expand mstore "a"),
+                            o = Known (expand mstore "rdft:TestTurtleEval")
+                         })
+            (addTest mstore (Evaluation ()));
+        );
+esac;
+
+tests is hash<string, () -> boolean>;
+

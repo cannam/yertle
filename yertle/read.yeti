@@ -57,22 +57,10 @@ store = load yertle.store;
 load yertle.parsebits;
 load yertle.ttlre; // Regex matchers for Turtle lexical elements
 load yertle.blank;
+load yertle.types;
 
 import java.lang: Character;
 import java.io: StringReader, BufferedReader;
-
-xsdPrefix = "http://www.w3.org/2001/XMLSchema#";
-rdfPrefix = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
-
-booleanType = "\(xsdPrefix)boolean";
-doubleType  = "\(xsdPrefix)double";
-decimalType = "\(xsdPrefix)decimal";
-integerType = "\(xsdPrefix)integer";
-
-rdfTypeIRI  = IRI "\(rdfPrefix)type";
-rdfFirstIRI = IRI "\(rdfPrefix)first";
-rdfRestIRI  = IRI "\(rdfPrefix)rest";
-rdfNilIRI   = IRI "\(rdfPrefix)nil";
 
 newLiteral string = { value = string, type = "", language = "" };
 

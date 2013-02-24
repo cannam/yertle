@@ -36,6 +36,7 @@ module yertle.store;
 index = load yertle.index;
 
 load yertle.prefix;
+load yertle.types;
 
 typedef iri = IRI string;
 
@@ -86,8 +87,8 @@ newStore () =
     orderMap = [ "s": (.s), "p": (.p), "o": (.o) ];
     patternOrderMap = [ "s": (.s), "p": (.p), "o": (.o) ];
     prefixes = newPrefixTable ();
-    addPrefix prefixes "rdf" "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
-    addPrefix prefixes "xsd" "http://www.w3.org/2001/XMLSchema#";
+    addPrefix prefixes "rdf" rdfPrefix;
+    addPrefix prefixes "xsd" xsdPrefix;
     {
         prefixes,
         indexes =
