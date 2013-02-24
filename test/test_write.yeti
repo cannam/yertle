@@ -79,6 +79,15 @@ metadata mstore iri =
         result = firstResultObjectText results,
     });
 
+obscureBlankNode n =
+    case n of 
+    Blank _: Blank 1;
+    other: other;
+    esac;
+
+obscureBlankNodes =
+    map do t: { s = obscureBlankNode t.s, p = t.p, o = obscureBlankNode t.o } done;
+
 addTest mstore type p =
    (iri = p.s;
     meta = metadata mstore iri;
@@ -99,7 +108,9 @@ addTest mstore type p =
                 handle.close ();
                 case loadTurtleFile (baseIri ^ filename) outfile of
                 Store s:
-                    compareUnordered (enumerate s) (enumerate fstore);
+                    compareUnordered
+                       (obscureBlankNodes (enumerate s))
+                       (obscureBlankNodes (enumerate fstore));
                 Error e: 
                     println "** failed to reload file \"\(outfile)\" written by Turtle serialiser: \(e)";
                     false;
