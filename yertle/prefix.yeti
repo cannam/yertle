@@ -60,20 +60,14 @@ expand ptab pname =
     fi);
 
 condense ptab fullname =
-    // Might be nice to do this in a more scalable way, but I can't
-    // help thinking that for most of our use cases this will actually
-    // be quicker. It'll do for now
-   (pfx =
-        fold do best k:
-            if strStarts? fullname k and strLength k > strLength best then k
-            else best
-            fi
-        done "" (keys ptab.inverse);
-    if pfx != "" then
-        ptab.inverse[pfx] ^ ":" ^ (strRight fullname (strLength pfx))
-    else
-        fullname
-    fi);
+   (pfxFor name =
+        if name in ptab.inverse or name == "" then name
+        else pfxFor (strLeft name ((strLength name) - 1))
+        fi;
+    case pfxFor fullname of
+      "": fullname;
+     pfx: ptab.inverse[pfx] ^ ":" ^ (strRight fullname (strLength pfx))
+    esac);
 
 prefixes ptab = keys ptab.forward;
 
