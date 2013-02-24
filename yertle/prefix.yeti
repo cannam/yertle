@@ -1,6 +1,6 @@
 /*
     Yertle
-    RDF/Turtle parser module
+    RDF/Turtle prefix expand and condense
 
     Copyright (c) 2013 Chris Cannam
     Copyright (c) 2013 Queen Mary, University of London
