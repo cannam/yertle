@@ -737,8 +737,7 @@ parseTurtleString baseIri str =
     parseTurtleHandle baseIri
         (readerHandle (new BufferedReader(new StringReader(str))));
 
-loadParsedTriples triples =
-   (st = store.newStore ();
+loadParsedTriples st triples =
     fold
         do acc item:
             case acc of
@@ -758,17 +757,22 @@ loadParsedTriples triples =
             esac   
         done
         (OK ())
-        triples
-    ~> \(Store st));
+        triples;
+
+// Load to an existing store
+loadTurtleFile st baseIri filename =
+    loadParsedTriples st (parseTurtleFile baseIri filename);
 
 // Load to a new store
-loadTurtleFile baseIri filename = 
-    loadParsedTriples (parseTurtleFile baseIri filename);
+loadTurtleFileAsNewStore baseIri filename = 
+   (st = store.newStore ();
+    loadParsedTriples st (parseTurtleFile baseIri filename) ~> \(Store st));
 
 {
 parseTurtleHandle, 
 parseTurtleFile, 
 parseTurtleString, 
 loadParsedTriples,
-loadTurtleFile
+loadTurtleFile,
+loadTurtleFileAsNewStore
 }

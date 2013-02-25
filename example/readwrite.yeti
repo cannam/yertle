@@ -38,6 +38,7 @@ program example.readwrite;
 
 read = load yertle.read;
 write = load yertle.write;
+store = load yertle.store;
 
 usage () =
    (eprintln "\nUsage: readwrite infile.ttl outfile.ttl [base-iri]";
@@ -57,9 +58,10 @@ process base infile outfile =
       \(p = read.parseTurtleFile base infile;
         println "Loaded \(length p) objects";
         p);
-    case time "load" \(read.loadParsedTriples parsed) of
-    Store s:
-        time "serialise" \(write.writeTurtleToFile outfile s);
+    st = store.newStore ();
+    case time "load" \(read.loadParsedTriples st parsed) of
+    OK ():
+        time "serialise" \(write.writeTurtleToFile outfile st);
     Error e:
         eprintln "Failed to parse input file \"\(infile)\": \(e)";
     esac);

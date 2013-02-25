@@ -36,13 +36,13 @@ module test.test_spec;
 { compare, compareUnordered } = load test.test;
 
 { newStore, enumerate, contains, match, expand } = load yertle.store;
-{ loadTurtleFile, parseTurtleFile } = load yertle.read;
+{ loadTurtleFileAsNewStore, parseTurtleFile } = load yertle.read;
 { writeNTriplesToHandle } = load yertle.write;
 
 testFileDir = "test/ttl/spec";
 outFileDir = "test/out";
 
-manifest = loadTurtleFile "" (testFileDir ^ "/manifest.ttl");
+manifest = loadTurtleFileAsNewStore "" (testFileDir ^ "/manifest.ttl");
 
 tests = [
 // Check this explicitly: we can't do anything else without it
@@ -126,7 +126,8 @@ addTest mstore type p =
             do filename:
                 checkParse true filename and
                    (fstore =
-                        case loadTurtleFile (baseIri ^ filename) (testPath filename) of
+                        case loadTurtleFileAsNewStore 
+                                (baseIri ^ filename) (testPath filename) of
                         Store s: s;
                         Error e: println "Error: \(e)"; newStore ();
                         esac;

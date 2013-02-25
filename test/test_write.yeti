@@ -36,13 +36,13 @@ module test.test_write;
 { compare, compareUnordered } = load test.test;
 
 { newStore, enumerate, contains, match, expand } = load yertle.store;
-{ loadTurtleFile, parseTurtleFile } = load yertle.read;
+{ loadTurtleFileAsNewStore, parseTurtleFile } = load yertle.read;
 { writeTurtleToHandle } = load yertle.write;
 
 testFileDir = "test/ttl/spec";
 outFileDir = "test/out";
 
-manifest = loadTurtleFile "" (testFileDir ^ "/manifest.ttl");
+manifest = loadTurtleFileAsNewStore "" (testFileDir ^ "/manifest.ttl");
 
 tests = [:];
 
@@ -98,7 +98,8 @@ addTest mstore type p =
             filename = meta.action;
             tests[meta.name] :=
               \(fstore =
-                    case loadTurtleFile (baseIri ^ filename) (testPath filename) of
+                    case loadTurtleFileAsNewStore
+                            (baseIri ^ filename) (testPath filename) of
                     Store s: s;
                     Error e: println "Error: \(e)"; newStore ();
                     esac;
@@ -106,7 +107,7 @@ addTest mstore type p =
                 handle = openOutFile outfile "UTF-8";
                 writeTurtleToHandle handle fstore;
                 handle.close ();
-                case loadTurtleFile (baseIri ^ filename) outfile of
+                case loadTurtleFileAsNewStore (baseIri ^ filename) outfile of
                 Store s:
                     compareUnordered
                        (obscureBlankNodes (enumerate s))
