@@ -236,9 +236,9 @@ writeTurtleToHandle handle st =
     tt = store.enumerate st;
     written = mapIntoHash id \(false) tt;
     ordered = // iri-subject triples first, then blank-subject triples
-        sortByIri (keys (hash (filter do t: not hasBlankSubject t done tt)))
+        sortByIri (filter do t: not hasBlankSubject t done tt)
         ++
-        keys (hash (filter hasBlankSubject tt));
+        filter hasBlankSubject tt;
     writeTurtleTriples handle {
         subject = None (),
         predicate = None (),
