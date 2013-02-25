@@ -44,15 +44,25 @@ usage () =
     eprintln "\n   Parses infile.ttl (Turtle or N-Triples format) and writes";
     eprintln "   its contents to outfile.ttl as Turtle\n");
 
+time description something =
+   (before = System#currentTimeMillis();
+    result = something ();
+    after = System#currentTimeMillis();
+    println "Time for \(description): \(after - before) ms";
+    result);
+
 process base infile outfile =
-//  for [1..1000] do n:
-    case read.loadTurtleFile base infile of
+   (parsed = time "parse"
+       // parse file and count triples (to defeat laziness for timing purposes)
+      \(p = read.parseTurtleFile base infile;
+        println "Loaded \(length p) objects";
+        p);
+    case time "load" \(read.loadParsedTriples parsed) of
     Store s:
-        write.writeTurtleToFile outfile s;
+        time "serialise" \(write.writeTurtleToFile outfile s);
     Error e:
         eprintln "Failed to parse input file \"\(infile)\": \(e)";
-    esac;
-//  done;
+    esac);
 
 case (list _argv) of
 infile::outfile::base::[]: process base infile outfile;
