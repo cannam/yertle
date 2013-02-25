@@ -207,12 +207,6 @@ writePrefixes handle st =
         esac
     done;
 
-writeNTriplesToHandle handle st =
-    for (store.enumerate st) do t:
-        writeNTriple handle t;
-        handle.write ".\n";
-    done;
-
 writeTurtleTriples handle state triples =
    \() (fold (writeTurtleTripleMaybe handle) state triples);
 
@@ -229,6 +223,16 @@ sortByIri = sortBy
          _: false;
         esac;
     done;
+
+writeNTriplesToHandle handle st =
+    for (store.enumerate st) do t:
+        writeNTriple handle t;
+        handle.write ".\n";
+    done;
+
+//!!! need base
+writeNTriplesToFile filename st =
+    writeNTriplesToHandle (openOutFile filename "US-ASCII") st;
 
 writeTurtleToHandle handle st =
    (writePrefixes handle st;
@@ -249,6 +253,16 @@ writeTurtleToHandle handle st =
     if not (empty? ordered) then
         handle.write ".";
     fi;
-    handle.write "\n");
+    handle.write "\n";
+    handle.close ());
 
-{ writeNTriplesToHandle, writeTurtleToHandle }
+//!!! need base
+writeTurtleToFile filename st =
+    writeTurtleToHandle (openOutFile filename "UTF-8") st;
+
+{
+  writeNTriplesToHandle,
+  writeNTriplesToFile,
+  writeTurtleToHandle,
+  writeTurtleToFile
+}

@@ -15,11 +15,12 @@ SOURCES		:= \
 	yertle/store.yeti \
 	yertle/ttlre.yeti \
 	yertle/types.yeti \
-	yertle/write.yeti
+	yertle/write.yeti \
+	example/readwrite.yeti
 
 yertle.jar:	$(SOURCES)
 	( java -cp $(CLASSPATH) yeti.lang.compiler.yeti -d classes $^ )
-	jar cf $@ -C classes yertle
+	jar cf $@ -C classes yertle -C classes example
 
 clean:	
 	rm -rf com
