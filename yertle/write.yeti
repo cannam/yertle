@@ -39,6 +39,9 @@ load yertle.types;
 
 import java.lang: Character;
 
+asciiMatcher = matchAll "[^\\x20-\\x21\\x23-\\x5b\\x5d-\\x7e]" NotAscii Ascii;
+percentMatcher = matchAll "[\\x00-\\x20<>\"{}|^`\\\\%]" Illegal Legal;
+
 asciiEncode text =
    (encode c = 
         case c of 
@@ -59,8 +62,7 @@ asciiEncode text =
          Ascii t: t;
          NotAscii [c]: encode c;
          _: ""
-         esac (matchAll "[^\\x20-\\x21\\x23-\\x5b\\x5d-\\x7e]"
-                   NotAscii Ascii text))
+         esac (asciiMatcher text))
     );
 
 percentEncode text =
@@ -75,8 +77,7 @@ percentEncode text =
          Legal t: t;
          Illegal [c]: encode c;
          _: ""
-         esac (matchAll "[\\x00-\\x20<>\"{}|^`\\\\%]"
-                   Illegal Legal text));
+         esac (percentMatcher text));
     );
 
 iriEncode = asciiEncode . percentEncode;
