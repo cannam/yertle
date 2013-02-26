@@ -52,6 +52,15 @@ obscureBlankNodes =
 
 [
 
+"make-collection-empty": \(
+    // In fact an empty collection is the node rdf:nil, but there is
+    // no way for a function returning a list of triples to express
+    // that. It has to be up to the caller.
+    compareUnordered
+       (obscureBlankNodes (makeCollection []))
+       (obscureBlankNodes [])
+),
+
 "make-collection-single": \(
     compareUnordered
        (obscureBlankNodes (makeCollection [IRI "x"]))
