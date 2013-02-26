@@ -86,8 +86,10 @@ obscureBlankNodes =
     tt = makeCollection [IRI "x", IRI "y", IRI "z"];
     for tt st.add;
     lastLinkNode = (head (reverse tt)).s;
-    compare (startOfCollection st lastLinkNode) (head tt).s;
+    compare (startOfCollection st lastLinkNode) (head tt).s
+    and compare (startOfCollection st (head tt).s) (head tt).s;
 ),
+
 
 ] is hash<string, () -> boolean>;
 
