@@ -138,7 +138,7 @@ writeAnonObject state triple =
         anonTriples;
     state.handle.write "] ");
 
-writeUnterminated state selectors triple =
+writeTurtleNodes state selectors triple =
    (state.handle.write (strPad " " state.indent "");
     nSelectors =
         if state.isAnon then (length selectors) - 1
@@ -159,37 +159,48 @@ isBlankObjectUnique state triple =
                 { s = Wildcard (), p = Wildcard (), o = Known triple.o }));
 
 writeUnterminatedTriple state triple =
-    writeUnterminated state [ (.s), (.p), (.o) ] triple;
+    writeTurtleNodes state [ (.s), (.p), (.o) ] triple;
 
-writeTurtleTriple state triple =
-   (isAnon = (hasBlankObject triple and isBlankObjectUnique state triple);
-    subState = state with { isAnon };
-    case state.subject of
-    None (): writeUnterminatedTriple subState triple;
+writeTurtleCollection state triple = false;
+
+writeNonCollectionTriple state triple =
+   (case state.subject of
+    None ():
+        // first triple in graph
+        writeUnterminatedTriple state triple;
     Some sn:
         if sn == triple.s then
             case state.predicate of
             None (): 
-                // first node in bnode [] syntax
-                writeUnterminated 
-                    (subState with { indent = 0 }) [ (.p), (.o) ] triple;
+                // first triple in bnode [] syntax
+                writeTurtleNodes 
+                    (state with { indent = 0 }) [ (.p), (.o) ] triple;
             Some pn:
                 if pn == triple.p then
-                    state.handle.write ",\n";
-                    writeUnterminated
-                        (subState with { indent = 8 }) [ (.o) ] triple;
+                    state.handle.write ", ";
+                    writeTurtleNodes
+                        (state with { indent = 8 }) [ (.o) ] triple;
                 else
                     state.handle.write ";\n";
-                    writeUnterminated 
-                        (subState with { indent = 4 }) [ (.p), (.o) ] triple;
+                    writeTurtleNodes 
+                        (state with { indent = 4 }) [ (.p), (.o) ] triple;
                 fi;
             esac;
         else
             state.handle.write ".\n\n";
-            writeUnterminatedTriple subState triple;
+            writeUnterminatedTriple state triple;
         fi
     esac;
     state with { subject = Some triple.s, predicate = Some triple.p });
+
+writeTurtleTriple state triple =
+   (isAnon = (hasBlankObject triple and isBlankObjectUnique state triple);
+    isCollection = (isAnon and (triple.o == rdfFirstIRI or triple.o == rdfRestIRI));
+    if isCollection and (writeTurtleCollection state triple) then
+        state
+    else
+        writeNonCollectionTriple (state with { isAnon }) triple
+    fi);
 
 writeTurtleTripleMaybe state triple =
     if not state.written[triple] then
