@@ -105,51 +105,51 @@ writeNTriple handle triple = // no state needed for NTriples
 hasBlankSubject t = case t.s of Blank _: true; IRI _: false esac;
 hasBlankObject t = case t.o of Blank _: true; IRI _: false; Literal _: false esac;
 
-writeAbbreviatedNode handle state node =
+writeAbbreviatedNode state node =
     case node of
     IRI u:
         abbr = state.store.abbreviate node;
         if abbr == u then
-            handle.write "<\(iriEncode u)>";
+            state.handle.write "<\(iriEncode u)>";
         else
-            handle.write "\(iriEncode abbr)";
+            state.handle.write "\(iriEncode abbr)";
         fi;
     Blank b:
-        handle.write "_:blank\(b)";
+        state.handle.write "_:blank\(b)";
     Literal l:
         if l.language != "" then
-            handle.write "\"\(asciiEncode l.value)\"@\(l.language)";
+            state.handle.write "\"\(asciiEncode l.value)\"@\(l.language)";
         elif l.type != "" then
-            handle.write "\"\(asciiEncode l.value)\"^^";
-            writeAbbreviatedNode handle state (IRI l.type);
+            state.handle.write "\"\(asciiEncode l.value)\"^^";
+            writeAbbreviatedNode state (IRI l.type);
         else
-            handle.write "\"\(asciiEncode l.value)\"";
+            state.handle.write "\"\(asciiEncode l.value)\"";
         fi;
     esac;
 
-var writeTurtleTriples' handle state triples = ();
+var writeTurtleTriples' state triples = ();
 
-writeAnonObject handle state triple =
-   (handle.write "[ ";
+writeAnonObject state triple =
+   (state.handle.write "[ ";
     anonTriples = state.store.match 
         { s = Known triple.o, p = Wildcard (), o = Wildcard () };
-    writeTurtleTriples' handle 
+    writeTurtleTriples' 
         (state with { subject = Some triple.o, predicate = None () })
         anonTriples;
-    handle.write "] ");
+    state.handle.write "] ");
 
-writeUnterminated handle state selectors anonObject triple =
-   (handle.write (strPad " " state.indent "");
+writeUnterminated state selectors triple =
+   (state.handle.write (strPad " " state.indent "");
     nSelectors =
-        if anonObject then (length selectors) - 1
+        if state.isAnon then (length selectors) - 1
         else length selectors
         fi;
     for (take nSelectors selectors) do sel:
-        writeAbbreviatedNode handle state (sel triple);
-        handle.write " ";
+        writeAbbreviatedNode state (sel triple);
+        state.handle.write " ";
     done;
-    if anonObject then
-        writeAnonObject handle state triple
+    if state.isAnon then
+        writeAnonObject state triple
     fi);
 
 isBlankObjectUnique state triple =
@@ -158,42 +158,43 @@ isBlankObjectUnique state triple =
            (state.store.match 
                 { s = Wildcard (), p = Wildcard (), o = Known triple.o }));
 
-writeUnterminatedTriple handle state triple =
-    writeUnterminated handle state [ (.s), (.p), (.o) ] triple;
+writeUnterminatedTriple state triple =
+    writeUnterminated state [ (.s), (.p), (.o) ] triple;
 
-writeTurtleTriple handle state triple =
-   (anonObject = (hasBlankObject triple and isBlankObjectUnique state triple);
+writeTurtleTriple state triple =
+   (isAnon = (hasBlankObject triple and isBlankObjectUnique state triple);
+    subState = state with { isAnon };
     case state.subject of
-    None (): writeUnterminatedTriple handle state anonObject triple;
+    None (): writeUnterminatedTriple subState triple;
     Some sn:
         if sn == triple.s then
             case state.predicate of
             None (): 
                 // first node in bnode [] syntax
-                writeUnterminated handle 
-                    (state with { indent = 0 }) [ (.p), (.o) ] anonObject triple;
+                writeUnterminated 
+                    (subState with { indent = 0 }) [ (.p), (.o) ] triple;
             Some pn:
                 if pn == triple.p then
-                    handle.write ",\n";
-                    writeUnterminated handle
-                        (state with { indent = 8 }) [ (.o) ] anonObject triple;
+                    state.handle.write ",\n";
+                    writeUnterminated
+                        (subState with { indent = 8 }) [ (.o) ] triple;
                 else
-                    handle.write ";\n";
-                    writeUnterminated handle 
-                        (state with { indent = 4 }) [ (.p), (.o) ] anonObject triple;
+                    state.handle.write ";\n";
+                    writeUnterminated 
+                        (subState with { indent = 4 }) [ (.p), (.o) ] triple;
                 fi;
             esac;
         else
-            handle.write ".\n\n";
-            writeUnterminatedTriple handle state anonObject triple;
+            state.handle.write ".\n\n";
+            writeUnterminatedTriple subState triple;
         fi
     esac;
     state with { subject = Some triple.s, predicate = Some triple.p });
 
-writeTurtleTripleMaybe handle state triple =
+writeTurtleTripleMaybe state triple =
     if not state.written[triple] then
         state.written[triple] := true;
-        writeTurtleTriple handle state triple;
+        writeTurtleTriple state triple;
     else
         state
     fi;
@@ -206,8 +207,8 @@ writePrefixes handle store =
         esac
     done;
 
-writeTurtleTriples handle state triples =
-   \() (fold (writeTurtleTripleMaybe handle) state triples);
+writeTurtleTriples state triples =
+   \() (fold writeTurtleTripleMaybe state triples);
 
 writeTurtleTriples' := writeTurtleTriples;
 
@@ -242,10 +243,12 @@ writeTurtleToHandle handle store =
         sortByIri (filter do t: not hasBlankSubject t done tt)
         ++
         filter hasBlankSubject tt;
-    writeTurtleTriples handle {
+    writeTurtleTriples {
+        handle,
         subject = None (),
         predicate = None (),
         indent = 0,
+        isAnon = false,
         store,
         written
     } ordered;
