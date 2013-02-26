@@ -18,8 +18,11 @@ SOURCES		:= \
 	yertle/write.yeti \
 	example/readwrite.yeti
 
+test/.run:	yertle.jar
+	java -cp $(CLASSPATH) yeti.lang.compiler.yeti test/all.yeti && touch $@
+
 yertle.jar:	$(SOURCES)
-	( java -cp $(CLASSPATH) yeti.lang.compiler.yeti -d classes $^ )
+	java -cp $(CLASSPATH) yeti.lang.compiler.yeti -d classes $^
 	jar cf $@ -C classes yertle -C classes example
 
 clean:	
