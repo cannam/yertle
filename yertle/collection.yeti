@@ -42,7 +42,7 @@ load yertle.types;
 /// rdf:next property) of that collection. This assumes the collection
 /// is well-formed and may return spurious results if it is not
 startOfCollection store node =
-    case store.match { s = Wildcard (), p = rdfRestIRI, o = node } of
+    case store.match { s = Wildcard (), p = Known rdfRestIRI, o = Known node } of
     prev::others: startOfCollection store prev.s;
     _: node;
     esac;
@@ -53,8 +53,8 @@ nodesInCollection store node =
    (collect' store first = 
         if first == rdfNilIRI then []
         else
-            here = store.match { s = first, p = rdfFirstIRI, o = Wildcard () };
-            rest = store.match { s = first, p = rdfRestIRI, o = Wildcard () };
+            here = store.match { s = Known first, p = Known rdfFirstIRI, o = Wildcard () };
+            rest = store.match { s = Known first, p = Known rdfRestIRI, o = Wildcard () };
             if rest == [] then
                 if here == [] then []
                 else [(head here).o]
