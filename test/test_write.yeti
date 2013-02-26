@@ -35,7 +35,7 @@ module test.test_write;
 
 { compare, compareUnordered } = load test.test;
 
-{ newStore, enumerate, contains, match, expand } = load yertle.store;
+{ newRdfStore } = load yertle.store;
 { loadTurtleFileAsNewStore, parseTurtleFile } = load yertle.read;
 { writeTurtleToHandle } = load yertle.write;
 
@@ -63,15 +63,15 @@ firstResultObjectText results =
     esac;
 
 metadata mstore iri =
-   (comments = match mstore { s = Known (iri),
+   (comments = mstore.match { s = Known (iri),
 //!!! ideally should be able to say Known (Abbr "rdfs:comment") or similar
-                              p = Known (expand mstore "rdfs:comment"),
+                              p = Known (mstore.expand "rdfs:comment"),
                               o = Wildcard () };
-    actions  = match mstore { s = Known (iri),
-                              p = Known (expand mstore "mf:action"),
+    actions  = mstore.match { s = Known (iri),
+                              p = Known (mstore.expand "mf:action"),
                               o = Wildcard () };
-    results  = match mstore { s = Known (iri),
-                              p = Known (expand mstore "mf:result"),
+    results  = mstore.match { s = Known (iri),
+                              p = Known (mstore.expand "mf:result"),
                               o = Wildcard () };
     {
         name = firstResultObjectText comments,
@@ -101,7 +101,7 @@ addTest mstore type p =
                     case loadTurtleFileAsNewStore
                             (baseIri ^ filename) (testPath filename) of
                     Store s: s;
-                    Error e: println "Error: \(e)"; newStore ();
+                    Error e: println "Error: \(e)"; newRdfStore ();
                     esac;
                 outfile = outFileDir ^ "/" ^ filename;
                 handle = openOutFile outfile "UTF-8";
@@ -110,8 +110,8 @@ addTest mstore type p =
                 case loadTurtleFileAsNewStore (baseIri ^ filename) outfile of
                 Store s:
                     compareUnordered
-                       (obscureBlankNodes (enumerate s))
-                       (obscureBlankNodes (enumerate fstore));
+                       (obscureBlankNodes (s.enumerate ()))
+                       (obscureBlankNodes (fstore.enumerate ()));
                 Error e: 
                     println "** failed to reload file \"\(outfile)\" written by Turtle serialiser: \(e)";
                     false;
@@ -124,17 +124,17 @@ case manifest of
         println "Error: \(e)";
         tests["manifest load failed"] := \(false);
     Store mstore:
-       (if length (enumerate mstore) < 10 then
+       (if length (mstore.enumerate ()) < 10 then
             tests["too few tests in manifest: expected 10 or more"] := \(false);
         fi;
-        for (match mstore { s = Wildcard (),
-                            p = Known (expand mstore "a"),
-                            o = Known (expand mstore "rdft:TestTurtlePositiveSyntax")
+        for (mstore.match { s = Wildcard (),
+                            p = Known (mstore.expand "a"),
+                            o = Known (mstore.expand "rdft:TestTurtlePositiveSyntax")
                          })
             (addTest mstore (Positive ()));
-        for (match mstore { s = Wildcard (),
-                            p = Known (expand mstore "a"),
-                            o = Known (expand mstore "rdft:TestTurtleEval")
+        for (mstore.match { s = Wildcard (),
+                            p = Known (mstore.expand "a"),
+                            o = Known (mstore.expand "rdft:TestTurtleEval")
                          })
             (addTest mstore (Evaluation ()));
         );

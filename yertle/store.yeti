@@ -139,32 +139,33 @@ abbreviate' st iri =
         esac
     esac;
 
-typedef opaque store = storetype;
+newRdfStore () =
+   (store = newStore ();
+    { 
+        add = add store,
+        remove = remove store,
+        norec enumerate () = enumerate store,
+        contains = contains store,
+        match = match store,
+        addPrefix = addPrefix store,
+        havePrefix = havePrefix store,
+        norec prefixes () = prefixes store,
+        expand = expand' store,
+        abbreviate = abbreviate' store
+    } as {
+        add is triple -> boolean,
+        remove is triple -> boolean,
+        enumerate is () -> list<triple>,
+        contains is triple -> boolean,
+        match is pattern -> list<triple>,
+        addPrefix is string -> string -> (),
+        havePrefix is string -> boolean,
+        prefixes is () -> list<string>,
+        expand is string -> iri,
+        abbreviate is iri -> string
+    });
 
-{ 
-newStore, 
-add, 
-remove, 
-enumerate, 
-contains, 
-match, 
-addPrefix, 
-havePrefix,
-prefixes, 
-expand = expand',
-abbreviate = abbreviate'
-} as {
-newStore is () -> store,
-add is store -> triple -> boolean,
-remove is store -> triple -> boolean,
-enumerate is store -> list<triple>,
-contains is store -> triple -> boolean,
-match is store -> pattern -> list<triple>,
-addPrefix is store -> string -> string -> (),
-havePrefix is store -> string -> boolean,
-prefixes is store -> list<string>,
-expand is store -> string -> iri,
-abbreviate is store -> iri -> string
+{
+    newRdfStore
 }
-
 

@@ -35,7 +35,6 @@ module test.test_read;
 
 { compare, compareUnordered } = load test.test;
 
-{ newStore, enumerate, contains, match } = load yertle.store;
 { parseTurtleFile, parseTurtleString } = load yertle.read;
 
 testFileDir = "test/ttl";

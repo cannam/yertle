@@ -33,8 +33,6 @@
 
 module yertle.write;
 
-store = load yertle.store;
-
 load yertle.types;
 
 import java.lang: Character;
@@ -110,7 +108,7 @@ hasBlankObject t = case t.o of Blank _: true; IRI _: false; Literal _: false esa
 writeAbbreviatedNode handle state node =
     case node of
     IRI u:
-        abbr = store.abbreviate state.store node;
+        abbr = state.store.abbreviate node;
         if abbr == u then
             handle.write "<\(iriEncode u)>";
         else
@@ -133,7 +131,7 @@ var writeTurtleTriples' handle state triples = ();
 
 writeAnonObject handle state triple =
    (handle.write "[ ";
-    anonTriples = store.match state.store 
+    anonTriples = state.store.match 
         { s = Known triple.o, p = Wildcard (), o = Wildcard () };
     writeTurtleTriples' handle 
         (state with { subject = Some triple.o, predicate = None () })
@@ -157,7 +155,7 @@ writeUnterminated handle state selectors anonObject triple =
 isBlankObjectUnique state triple =
     empty?
        (filter (!= triple)
-           (store.match state.store 
+           (state.store.match 
                 { s = Wildcard (), p = Wildcard (), o = Known triple.o }));
 
 writeUnterminatedTriple handle state triple =
@@ -200,9 +198,9 @@ writeTurtleTripleMaybe handle state triple =
         state
     fi;
 
-writePrefixes handle st =
-    for (store.prefixes st) do pfx:
-        case store.expand st (pfx ^ ":") of
+writePrefixes handle store =
+    for (store.prefixes ()) do pfx:
+        case store.expand (pfx ^ ":") of
         IRI iri: 
             handle.write "@prefix \(pfx): <\(iri)> .\n"
         esac
@@ -225,20 +223,20 @@ sortByIri = sortBy
         esac;
     done;
 
-writeNTriplesToHandle handle st =
-    for (store.enumerate st) do t:
+writeNTriplesToHandle handle store =
+    for (store.enumerate ()) do t:
         writeNTriple handle t;
         handle.write ".\n";
     done;
 
 //!!! need base
-writeNTriplesToFile filename st =
-    writeNTriplesToHandle (openOutFile filename "US-ASCII") st;
+writeNTriplesToFile filename store =
+    writeNTriplesToHandle (openOutFile filename "US-ASCII") store;
 
-writeTurtleToHandle handle st =
-   (writePrefixes handle st;
+writeTurtleToHandle handle store =
+   (writePrefixes handle store;
     handle.write "\n";
-    tt = store.enumerate st;
+    tt = store.enumerate ();
     written = mapIntoHash id \(false) tt;
     ordered = // iri-subject triples first, then blank-subject triples
         sortByIri (filter do t: not hasBlankSubject t done tt)
@@ -248,7 +246,7 @@ writeTurtleToHandle handle st =
         subject = None (),
         predicate = None (),
         indent = 0,
-        store = st,
+        store,
         written
     } ordered;
     if not (empty? ordered) then
@@ -258,8 +256,8 @@ writeTurtleToHandle handle st =
     handle.close ());
 
 //!!! need base
-writeTurtleToFile filename st =
-    writeTurtleToHandle (openOutFile filename "UTF-8") st;
+writeTurtleToFile filename store =
+    writeTurtleToHandle (openOutFile filename "UTF-8") store;
 
 {
   writeNTriplesToHandle,

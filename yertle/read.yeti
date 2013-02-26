@@ -747,10 +747,10 @@ loadParsedTriples st triples =
                 Error e: Error e;
                 Prefix { fst, snd }:
                     if fst == "" then OK () // Don't add empty prefix to store
-                    elif store.havePrefix st fst then OK () // Don't override
-                    else OK (store.addPrefix st fst snd) fi;
+                    elif st.havePrefix fst then OK () // Don't override
+                    else OK (st.addPrefix fst snd) fi;
                 Triple t:
-                    if store.add st t then OK ()
+                    if st.add t then OK ()
                     else Error "Add failed for triple \(t)"
                     fi;
                 esac
@@ -765,7 +765,7 @@ loadTurtleFile st baseIri filename =
 
 // Load to a new store
 loadTurtleFileAsNewStore baseIri filename = 
-   (st = store.newStore ();
+   (st = store.newRdfStore ();
     loadParsedTriples st (parseTurtleFile baseIri filename) ~> \(Store st));
 
 {

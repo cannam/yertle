@@ -58,7 +58,7 @@ process base infile outfile =
       \(p = read.parseTurtleFile base infile;
         println "Loaded \(length p) objects";
         p);
-    st = store.newStore ();
+    st = store.newRdfStore ();
     case time "load" \(read.loadParsedTriples st parsed) of
     OK ():
         time "serialise" \(write.writeTurtleToFile outfile st);
