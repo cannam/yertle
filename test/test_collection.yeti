@@ -90,6 +90,14 @@ obscureBlankNodes =
     and compare (startOfCollection st (head tt).s) (head tt).s;
 ),
 
+"nodes-in-collection": \(
+    st = newRdfStore ();
+    nodes = [IRI "x", IRI "y", IRI "z"];
+    tt = makeCollection nodes;
+    for tt st.add;
+    lastLinkNode = (head (reverse tt)).s;
+    compare (nodesInCollection st lastLinkNode) nodes;
+),
 
 ] is hash<string, () -> boolean>;
 
