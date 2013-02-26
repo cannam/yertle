@@ -142,18 +142,19 @@ abbreviate' st iri =
     esac;
 
 newRdfStore () =
-   (store = newStore ();
+   (s = newStore ();
+    sync = synchronized s;
     { 
-        add = add store,
-        remove = remove store,
-        norec enumerate () = enumerate store,
-        contains = contains store,
-        match = match store,
-        addPrefix = addPrefix store,
-        havePrefix = havePrefix store,
-        norec prefixes () = prefixes store,
-        expand = expand' store,
-        abbreviate = abbreviate' store
+        norec add t = sync \(add s t),
+        norec remove t = sync \(remove s t),
+        norec enumerate () = sync \(enumerate s),
+        norec contains t = sync \(contains s t),
+        norec match pat = sync \(match s pat),
+        norec addPrefix pfx exp = sync \(addPrefix s pfx exp),
+        norec havePrefix pfx = sync \(havePrefix s pfx),
+        norec prefixes () = sync \(prefixes s),
+        expand str = sync \(expand' s str),
+        abbreviate str = sync \(abbreviate' s str),
     } as {
         add is triple -> (),
         remove is triple -> boolean,
