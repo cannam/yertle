@@ -35,6 +35,8 @@ module yertle.write;
 
 load yertle.types;
 
+{ nodesInCollection } = load yertle.collection;
+
 import java.lang: Character;
 
 asciiMatcher = matchAll "[^\\x20-\\x21\\x23-\\x5b\\x5d-\\x7e]" NotAscii Ascii;
@@ -161,7 +163,16 @@ isBlankObjectUnique state triple =
 writeUnterminatedTriple state triple =
     writeTurtleNodes state [ (.s), (.p), (.o) ] triple;
 
-writeTurtleCollection state triple = false;
+writeTurtleCollection state triple =
+    // it's the object of this triple that is the collection node
+   (nodes = nodesInCollection state.store triple.o;
+    state.handle.write "( ";
+    for nodes do node:
+        writeAbbreviatedNode state node;
+        state.handle.write " ";
+    done;
+    state.handle.write ") ";
+    true);
 
 writeNonCollectionTriple state triple =
    (case state.subject of
