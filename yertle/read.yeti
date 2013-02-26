@@ -58,6 +58,7 @@ load yertle.parsebits;
 load yertle.ttlre; // Regex matchers for Turtle lexical elements
 load yertle.blank;
 load yertle.types;
+load yertle.collection;
 
 import java.lang: Character;
 import java.io: StringReader, BufferedReader;
@@ -336,7 +337,6 @@ var object' state =
     Error "object' should have been reassigned";
 
 // [15] collection ::= '(' object* ')'
-//!!! This could be simpler
 collection state =
    (readObjects acc state =
         if havePunctuation ")" state then
@@ -344,29 +344,17 @@ collection state =
         else
             object' state ~> do obj: readObjects (acc ++ [obj]) state done
         fi;
-    addObjects node state objects =
-        case objects of
-        obj::rest:
-           (emit state { s = node, p = rdfFirstIRI, o = obj };
-            if empty? rest then
-                emit state { s = node, p = rdfRestIRI, o = rdfNilIRI };
-            else
-                nextNode = newBlankNode ();
-                emit state { s = node, p = rdfRestIRI, o = nextNode };
-                addObjects nextNode state rest;
-            fi);
-        _: ();
-        esac;
     required "(" state ~>
        \(readObjects [] state ~>
             do objects:
-            case objects of
-            []: required ")" state ~> \(OK rdfNilIRI);
-             _:
-               (headnode = newBlankNode ();
-                addObjects headnode state objects;
-                required ")" state ~> \(OK headnode));
-            esac done));
+                if empty? objects then
+                    required ")" state ~> \(OK rdfNilIRI);
+                else
+                    c = makeCollection objects;
+                    for c (emit state);
+                    required ")" state ~> \(OK (head c).s);
+                fi
+            done));
 
 // [135s] iri ::= IRIREF | PrefixedName
 iri state =
