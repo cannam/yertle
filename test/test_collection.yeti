@@ -34,7 +34,7 @@
 module test.test_collection;
 
 { newRdfStore } = load yertle.store;
-{ startOfCollection, nodesInCollection, makeCollection } = load yertle.collection;
+{ startOfCollection, triplesOfCollection, nodesInCollection, makeCollection } = load yertle.collection;
 
 { compare, compareUnordered } = load test.test;
 
@@ -88,6 +88,21 @@ obscureBlankNodes =
     lastLinkNode = (head (reverse tt)).s;
     compare (startOfCollection st lastLinkNode) (head tt).s
     and compare (startOfCollection st (head tt).s) (head tt).s;
+),
+
+"triples-of-collection": \(
+    st = newRdfStore ();
+    tt = makeCollection [IRI "x", IRI "y"];
+    for tt st.add;
+    lastLinkNode = (head (reverse tt)).s;
+    compareUnordered
+       (obscureBlankNodes (triplesOfCollection st lastLinkNode))
+       (obscureBlankNodes
+           [ { s = Blank 1, p = rdfFirstIRI, o = IRI "x" },
+             { s = Blank 1, p = rdfRestIRI, o = Blank 2 },
+             { s = Blank 2, p = rdfFirstIRI, o = IRI "y" },
+             { s = Blank 2, p = rdfRestIRI, o = rdfNilIRI }
+           ])
 ),
 
 "nodes-in-collection": \(

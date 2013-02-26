@@ -37,6 +37,11 @@ load yertle.types;
 
 { newBlankNode } = load yertle.blank;
 
+/// Return true if the given node looks like a collection node (i.e. a
+/// metanode, a node with rdf:first and rdf:next property).
+isCollectionNode store node =
+    not (empty? (store.match { s = Known node, p = Known rdfRestIRI, o = Wildcard () }));
+
 /// Given any collection node, and the store that contains it, return
 /// the first collection node (i.e. metanode, node with rdf:first and
 /// rdf:next property) of that collection. This assumes the collection
@@ -46,6 +51,29 @@ startOfCollection store node =
     prev::others: startOfCollection store prev.s;
     _: node;
     esac;
+
+/// Given a collection node, return all rdf:first and rdf:rest triples
+/// that comprise the collection (in collection order).
+triplesOfCollection store node =
+   (triples' store first acc =
+        if first == rdfNilIRI then acc
+        else
+            here = store.match { s = Known first, p = Known rdfFirstIRI, o = Wildcard () };
+            rest = store.match { s = Known first, p = Known rdfRestIRI, o = Wildcard () };
+            if rest == [] then
+                if here == [] then acc
+                else acc ++ [head here]
+                fi
+            else
+                if here == [] then
+                    triples' store (head rest).o (acc ++ [head rest])
+                else
+                    triples' store (head rest).o (acc ++ [head here, head rest])
+                fi
+            fi
+        fi;
+     triples' store (startOfCollection store node) []);
+        
 
 /// Given a collection node, and the store that contains it, return
 /// all nodes contained in that collection in order.
@@ -85,7 +113,9 @@ makeCollection nodes =
     makeColl' (newBlankNode ()) nodes);
         
 {
+   isCollectionNode,
    startOfCollection,
+   triplesOfCollection,
    nodesInCollection,
    makeCollection
 }

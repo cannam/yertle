@@ -35,7 +35,7 @@ module yertle.write;
 
 load yertle.types;
 
-{ nodesInCollection } = load yertle.collection;
+{ isCollectionNode, triplesOfCollection } = load yertle.collection;
 
 import java.lang: Character;
 
@@ -104,9 +104,6 @@ writeNTriple handle triple = // no state needed for NTriples
         handle.write " ";
     done;
 
-hasBlankSubject t = case t.s of Blank _: true; IRI _: false esac;
-hasBlankObject t = case t.o of Blank _: true; IRI _: false; Literal _: false esac;
-
 writeAbbreviatedNode state node =
     case node of
     IRI u:
@@ -140,19 +137,67 @@ writeAnonObject state triple =
         anonTriples;
     state.handle.write "] ");
 
-writeTurtleNodes state selectors triple =
-   (state.handle.write (strPad " " state.indent "");
-    nSelectors =
-        if state.isAnon then (length selectors) - 1
-        else length selectors
-        fi;
-    for (take nSelectors selectors) do sel:
-        writeAbbreviatedNode state (sel triple);
-        state.handle.write " ";
-    done;
+writeTurtleObject state triple =
     if state.isAnon then
         writeAnonObject state triple
-    fi);
+    else
+        writeAbbreviatedNode state triple.o;
+        state.handle.write " ";
+    fi;
+
+writeTurtleNodes state selectors triple =
+   (state.handle.write (strPad " " state.indent "");
+    for selectors do sel:
+        writeAbbreviatedNode state (sel triple);
+        state.handle.write " ";
+    done);
+
+writeTurtleCollection state triple =
+    // it's the object of this triple that is the collection node
+   (triples = triplesOfCollection state.store triple.o;
+    state.handle.write "( ";
+    for triples do triple:
+        if triple.p == rdfFirstIRI then
+            writeAbbreviatedNode state triple.o;
+            state.handle.write " ";
+        fi;
+        state.written[triple] := true;
+    done;
+    state.handle.write ") ");
+
+writeTripleParts state triple =
+   (case state.subject of
+    None ():
+        // first triple in graph
+        writeTurtleNodes state [ (.s), (.p) ] triple;
+    Some sn:
+        if sn == triple.s then
+            case state.predicate of
+            None (): 
+                // first triple in bnode [] syntax
+                writeTurtleNodes (state with { indent = 0 }) [ (.p) ] triple;
+            Some pn:
+                if pn == triple.p then
+                    state.handle.write ", ";
+                else
+                    state.handle.write ";\n";
+                    writeTurtleNodes (state with { indent = 4 }) [ (.p) ] triple;
+                fi;
+            esac;
+        else
+            state.handle.write ".\n\n";
+            writeTurtleNodes state [ (.s), (.p) ] triple;
+        fi
+    esac;
+    if state.isCollection then
+        writeTurtleCollection state triple;
+    else
+        writeTurtleObject state triple;
+    fi;
+    state with { subject = Some triple.s, predicate = Some triple.p });
+
+hasBlankSubject t = case t.s of Blank _: true; IRI _: false esac;
+hasBlankObject t = case t.o of Blank _: true; IRI _: false; Literal _: false esac;
 
 isBlankObjectUnique state triple =
     empty?
@@ -160,63 +205,23 @@ isBlankObjectUnique state triple =
            (state.store.match 
                 { s = Wildcard (), p = Wildcard (), o = Known triple.o }));
 
-writeUnterminatedTriple state triple =
-    writeTurtleNodes state [ (.s), (.p), (.o) ] triple;
-
-writeTurtleCollection state triple =
-    // it's the object of this triple that is the collection node
-   (nodes = nodesInCollection state.store triple.o;
-    state.handle.write "( ";
-    for nodes do node:
-        writeAbbreviatedNode state node;
-        state.handle.write " ";
-    done;
-    state.handle.write ") ";
-    true);
-
-writeNonCollectionTriple state triple =
-   (case state.subject of
-    None ():
-        // first triple in graph
-        writeUnterminatedTriple state triple;
-    Some sn:
-        if sn == triple.s then
-            case state.predicate of
-            None (): 
-                // first triple in bnode [] syntax
-                writeTurtleNodes 
-                    (state with { indent = 0 }) [ (.p), (.o) ] triple;
-            Some pn:
-                if pn == triple.p then
-                    state.handle.write ", ";
-                    writeTurtleNodes
-                        (state with { indent = 8 }) [ (.o) ] triple;
-                else
-                    state.handle.write ";\n";
-                    writeTurtleNodes 
-                        (state with { indent = 4 }) [ (.p), (.o) ] triple;
-                fi;
-            esac;
-        else
-            state.handle.write ".\n\n";
-            writeUnterminatedTriple state triple;
-        fi
-    esac;
-    state with { subject = Some triple.s, predicate = Some triple.p });
-
-writeTurtleTriple state triple =
-   (isAnon = (hasBlankObject triple and isBlankObjectUnique state triple);
-    isCollection = (isAnon and (triple.o == rdfFirstIRI or triple.o == rdfRestIRI));
-    if isCollection and (writeTurtleCollection state triple) then
-        state
-    else
-        writeNonCollectionTriple (state with { isAnon }) triple
-    fi);
+isBlankObjectUnwritten state triple =
+    empty?
+       (filter do t: state.written[t] done
+           (state.store.match
+                { s = Known triple.o, p = Wildcard (), o = Wildcard () }));
 
 writeTurtleTripleMaybe state triple =
     if not state.written[triple] then
+        isAnon =
+            hasBlankObject triple and
+            isBlankObjectUnique state triple and
+            isBlankObjectUnwritten state triple;
+        isCollection = 
+            isAnon and
+            isCollectionNode state.store triple.o;
         state.written[triple] := true;
-        writeTurtleTriple state triple;
+        writeTripleParts (state with { isAnon, isCollection }) triple;
     else
         state
     fi;
@@ -271,6 +276,7 @@ writeTurtleToHandle handle store =
         predicate = None (),
         indent = 0,
         isAnon = false,
+        isCollection = false,
         store,
         written
     } ordered;

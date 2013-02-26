@@ -734,8 +734,9 @@ loadParsedTriples st triples =
                 case item of
                 Error e: Error e;
                 Prefix { fst, snd }:
-                    if fst == "" then OK () // Don't add empty prefix to store
-                    elif st.havePrefix fst then OK () // Don't override
+                //!!! should we add any prefix to store that is not derived from the file iri?
+                    if /* fst == "" then OK () // Don't add empty prefix to store
+                    elif */ st.havePrefix fst then OK () // Don't override
                     else OK (st.addPrefix fst snd) fi;
                 Triple t:
                     OK (st.add t);
