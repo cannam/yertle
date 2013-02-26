@@ -102,7 +102,9 @@ newStore () =
     );
 
 add st t =
-    all id (map do ix: index.add ix t done st.indexes);
+    if all id (map do ix: index.add ix t done st.indexes) then ()
+    else throw new Exception("Internal error: add failed for \(t) in \(st)");
+    fi;
 
 remove st t =
     all id (map do ix: index.remove ix t done st.indexes);
@@ -153,7 +155,7 @@ newRdfStore () =
         expand = expand' store,
         abbreviate = abbreviate' store
     } as {
-        add is triple -> boolean,
+        add is triple -> (),
         remove is triple -> boolean,
         enumerate is () -> list<triple>,
         contains is triple -> boolean,

@@ -738,9 +738,7 @@ loadParsedTriples st triples =
                     elif st.havePrefix fst then OK () // Don't override
                     else OK (st.addPrefix fst snd) fi;
                 Triple t:
-                    if st.add t then OK ()
-                    else Error "Add failed for triple \(t)"
-                    fi;
+                    OK (st.add t);
                 esac
             esac   
         done

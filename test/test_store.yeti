@@ -68,44 +68,44 @@ testWildcard n =
 
 "simple": \(
     h = newRdfStore ();
-    h.add (testTriple "aaa") and
-       compareUnordered (h.enumerate ()) [testTriple "aaa"];
+    h.add (testTriple "aaa");
+    compareUnordered (h.enumerate ()) [testTriple "aaa"];
 ),
 
 "duplicate": \(
     h = newRdfStore ();
-    h.add (testTriple "aaa") and
-       h.add (testTriple "aaa") and
-       compareUnordered (h.enumerate ()) [testTriple "aaa"];
+    h.add (testTriple "aaa");
+    h.add (testTriple "aaa");
+    compareUnordered (h.enumerate ()) [testTriple "aaa"];
 ),
 
 "common": \(
     h = newRdfStore ();
-    h.add (testTriple "aaa") and
-       h.add (testTriple "aab") and
-       compareUnordered (h.enumerate ()) [testTriple "aaa",testTriple "aab"];
+    h.add (testTriple "aaa");
+    h.add (testTriple "aab");
+    compareUnordered (h.enumerate ()) [testTriple "aaa",testTriple "aab"];
 ),
 
 "diverging": \(
     h = newRdfStore ();
-    h.add (testTriple "aaa") and
-       h.add (testTriple "aab") and
-       h.add (testTriple "abc") and
-       h.add (testTriple "bba") and
-       compareUnordered (h.enumerate ())
-           [(testTriple "aaa"),
-            (testTriple "aab"),
-            (testTriple "abc"),
-            (testTriple "bba")];
+    h.add (testTriple "aaa");
+    h.add (testTriple "aab");
+    h.add (testTriple "abc");
+    h.add (testTriple "bba");
+    compareUnordered (h.enumerate ())
+       [(testTriple "aaa"),
+        (testTriple "aab"),
+        (testTriple "abc"),
+        (testTriple "bba")];
 ),
 
 "contains": \(
     h = newRdfStore ();
-    h.add (testTriple "aaa") and
-       h.add (testTriple "aab") and
-       h.add (testTriple "abc") and
-       h.add (testTriple "bba") and
-       h.contains (testTriple "aaa") and
+    h.add (testTriple "aaa");
+    h.add (testTriple "aab");
+    h.add (testTriple "abc");
+    h.add (testTriple "bba");
+    h.contains (testTriple "aaa") and
        h.contains (testTriple "aab") and
        h.contains (testTriple "abc") and
        h.contains (testTriple "bba") and
@@ -114,11 +114,11 @@ testWildcard n =
 
 "remove": \(
     h = newRdfStore ();
-    h.add (testTriple "aaa") and
-       h.add (testTriple "aab") and
-       h.add (testTriple "abc") and
-       h.add (testTriple "bba") and
-       h.contains (testTriple "aaa") and
+    h.add (testTriple "aaa");
+    h.add (testTriple "aab");
+    h.add (testTriple "abc");
+    h.add (testTriple "bba");
+    h.contains (testTriple "aaa") and
        h.remove (testTriple "aaa") and
        not h.contains (testTriple "aaa") and // not there after removing
        not h.remove (testTriple "aaa") and // and can't remove again
@@ -128,13 +128,13 @@ testWildcard n =
 
 "match": \(
     h = newRdfStore ();
-    h.add (testTriple "aaa") and
-       h.add (testTriple "aab") and
-       h.add (testTriple "abc") and
-       h.add (testTriple "bba") and
-       compareUnordered (h.enumerate ()) (h.match (testWildcard "***")) and
-       compareUnordered (h.match (testWildcard "**a"))
-          [testTriple "aaa", testTriple "bba"]
+    h.add (testTriple "aaa");
+    h.add (testTriple "aab");
+    h.add (testTriple "abc");
+    h.add (testTriple "bba");
+    compareUnordered (h.enumerate ()) (h.match (testWildcard "***")) and
+    compareUnordered (h.match (testWildcard "**a"))
+        [testTriple "aaa", testTriple "bba"]
 ),
 
 ] is hash<string, () -> boolean>;
