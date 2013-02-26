@@ -39,16 +39,15 @@ module test.test_write;
 { loadTurtleFileAsNewStore, parseTurtleFile } = load yertle.read;
 { writeTurtleToHandle } = load yertle.write;
 
-testFileDir = "test/ttl/spec";
+testFileDir = "test/ttl";
+specFileDir = "test/ttl/spec";
 outFileDir = "test/out";
 
-manifest = loadTurtleFileAsNewStore "" (testFileDir ^ "/manifest.ttl");
-
-tests = [:];
+manifest = loadTurtleFileAsNewStore "" (specFileDir ^ "/manifest.ttl");
 
 baseIri = "http://example/base/";
 
-testPath filename = testFileDir ^ "/" ^ filename;
+tests = [:];
 
 //!!! dup with test_spec: refactor
 firstResultObjectText results =
@@ -88,6 +87,27 @@ obscureBlankNode n =
 obscureBlankNodes =
     map do t: { s = obscureBlankNode t.s, p = t.p, o = obscureBlankNode t.o } done;
 
+addTestForFile name filename filepath =
+    tests[name] :=
+      \(fstore =
+            case loadTurtleFileAsNewStore (baseIri ^ filename) filepath of
+            Store s: s;
+            Error e: println "Error: \(e)"; newRdfStore ();
+            esac;
+        outfile = outFileDir ^ "/" ^ filename;
+        handle = openOutFile outfile "UTF-8";
+        writeTurtleToHandle handle fstore;
+        handle.close ();
+        case loadTurtleFileAsNewStore (baseIri ^ filename) outfile of
+        Store s:
+            compareUnordered
+               (obscureBlankNodes (s.enumerate ()))
+               (obscureBlankNodes (fstore.enumerate ()));
+        Error e: 
+            println "** failed to reload file \"\(outfile)\" written by Turtle serialiser: \(e)";
+            false;
+        esac);
+
 addTest mstore type p =
    (iri = p.s;
     meta = metadata mstore iri;
@@ -96,28 +116,15 @@ addTest mstore type p =
     else
         if case type of Negative (): false; _: true esac then
             filename = meta.action;
-            tests[meta.name] :=
-              \(fstore =
-                    case loadTurtleFileAsNewStore
-                            (baseIri ^ filename) (testPath filename) of
-                    Store s: s;
-                    Error e: println "Error: \(e)"; newRdfStore ();
-                    esac;
-                outfile = outFileDir ^ "/" ^ filename;
-                handle = openOutFile outfile "UTF-8";
-                writeTurtleToHandle handle fstore;
-                handle.close ();
-                case loadTurtleFileAsNewStore (baseIri ^ filename) outfile of
-                Store s:
-                    compareUnordered
-                       (obscureBlankNodes (s.enumerate ()))
-                       (obscureBlankNodes (fstore.enumerate ()));
-                Error e: 
-                    println "** failed to reload file \"\(outfile)\" written by Turtle serialiser: \(e)";
-                    false;
-                esac);
+            addTestForFile meta.name filename "\(specFileDir)/\(filename)";
         fi;
     fi);
+
+for [
+    "bnode-nested-2", "bnode-nested", "bnode", "boolean", "collections",
+    "example1", "example2", "example3", "goblin", "iris", "numbers", "quoted",
+]
+do n: addTestForFile "\(n)" "\(n).ttl" "\(testFileDir)/\(n).ttl" done;
 
 case manifest of
     Error e:
