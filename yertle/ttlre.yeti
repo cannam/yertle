@@ -84,7 +84,6 @@ likeSparqlPfx = like "^[Pp][Rr][Ee][Ff][Ii][Xx]\\b";
 
 {
 rangeIRIEsc,
-rePNLocalEscChars,
 likeAZ, likeAZLower,
 likeIRIPart,
 likeSlashU,

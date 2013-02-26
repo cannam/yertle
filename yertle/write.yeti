@@ -42,7 +42,7 @@ import java.lang: Character;
 
 asciiMatcher = matchAll "[^\\x20-\\x21\\x23-\\x5b\\x5d-\\x7e]" Escape Good;
 percentMatcher = matchAll "[\(rangeIRIEsc)\\xa0-\\xff]" Escape Good;
-escMatcher = matchAll rePNLocalEscChars Escape Good;
+escMatcher = matchAll "[~.!$&'()*+,;=/?#@%]" Escape Good;
 
 applyEncoder encoder matcher text =
     strJoin ""
@@ -147,35 +147,37 @@ writeAnonObject state triple =
     writeTurtleTriples' 
         (state with { subject = Some triple.o, predicate = None () })
         anonTriples;
-    state.handle.write "] ");
+    state.handle.write " ]");
 
 writeTurtleObject state triple =
     if state.isAnon then
+        state.handle.write " ";
         writeAnonObject state triple
     else
-        writeAbbreviatedNode state triple.o;
         state.handle.write " ";
+        writeAbbreviatedNode state triple.o;
     fi;
 
 writeTurtleNodes state selectors triple =
    (state.handle.write (strPad " " state.indent "");
+    var first = true;
     for selectors do sel:
+        if first then first := false else state.handle.write " " fi;
         writeAbbreviatedNode state (sel triple);
-        state.handle.write " ";
     done);
 
 writeTurtleCollection state triple =
     // it's the object of this triple that is the collection node
    (triples = triplesOfCollection state.store triple.o;
-    state.handle.write "( ";
+    state.handle.write " (";
     for triples do triple:
         if triple.p == rdfFirstIRI then
-            writeAbbreviatedNode state triple.o;
             state.handle.write " ";
+            writeAbbreviatedNode state triple.o;
         fi;
         state.written[triple] := true;
     done;
-    state.handle.write ") ");
+    state.handle.write " )");
 
 writeTripleParts state triple =
    (case state.subject of
@@ -190,14 +192,14 @@ writeTripleParts state triple =
                 writeTurtleNodes (state with { indent = 0 }) [ (.p) ] triple;
             Some pn:
                 if pn == triple.p then
-                    state.handle.write ", ";
+                    state.handle.write ",";
                 else
-                    state.handle.write ";\n";
+                    state.handle.write " ;\n";
                     writeTurtleNodes (state with { indent = 4 }) [ (.p) ] triple;
                 fi;
             esac;
         else
-            state.handle.write ".\n\n";
+            state.handle.write " .\n\n";
             writeTurtleNodes state [ (.s), (.p) ] triple;
         fi
     esac;
