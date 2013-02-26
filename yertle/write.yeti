@@ -34,13 +34,24 @@
 module yertle.write;
 
 load yertle.types;
+load yertle.ttlre;
 
 { isCollectionNode, triplesOfCollection } = load yertle.collection;
 
 import java.lang: Character;
 
-asciiMatcher = matchAll "[^\\x20-\\x21\\x23-\\x5b\\x5d-\\x7e]" NotAscii Ascii;
-percentMatcher = matchAll "[\\x00-\\x20<>\"{}|^`\\\\%]" Illegal Legal;
+asciiMatcher = matchAll "[^\\x20-\\x21\\x23-\\x5b\\x5d-\\x7e]" Escape Good;
+percentMatcher = matchAll "[\(rangeIRIEsc)]" Escape Good;
+escMatcher = matchAll rePNLocalEscChars Escape Good;
+
+applyEncoder encoder matcher text =
+    strJoin ""
+       (map
+        \case of
+         Good t: t;
+         Escape [c]: encoder c;
+         _: ""
+         esac (matcher text));
 
 asciiEncode text =
    (encode c = 
@@ -56,14 +67,7 @@ asciiEncode text =
             n = if (strLength s) < 5 then 4 else 8 fi;
             "\\\(u)" ^ (strPad "0" (n - strLength s) "") ^ (strUpper s))
         esac;
-    strJoin ""
-       (map
-        \case of
-         Ascii t: t;
-         NotAscii [c]: encode c;
-         _: ""
-         esac (asciiMatcher text))
-    );
+    applyEncoder encode asciiMatcher text);
 
 percentEncode text =
     // encoding only chars that are ASCII but not legal unescaped in
@@ -71,16 +75,23 @@ percentEncode text =
    (encode c =
        (s = Integer#toHexString(Character#codePointAt(c is string, 0));
         "%" ^ if (strLength s < 2) then "0" ^ s else s fi);
-    strJoin ""
-       (map
-        \case of
-         Legal t: t;
-         Illegal [c]: encode c;
-         _: ""
-         esac (percentMatcher text));
-    );
+    applyEncoder encode percentMatcher text);
+
+escEncode text =
+    // encoding chars that are allowed in pname local parts but only
+    // if escaped
+    applyEncoder do c: "\\" ^ c done escMatcher text;
 
 iriEncode = asciiEncode . percentEncode;
+
+localEncode str = 
+   (ix = strIndexOf str ":" 0;
+    if ix >= 0 then
+        (strLeft str ix) ^ 
+        ((escEncode . asciiEncode . percentEncode) (strRight str ix))
+    else
+        str
+    fi);
 
 writeContextFreeNode handle node =
     case node of
@@ -111,7 +122,7 @@ writeAbbreviatedNode state node =
         if abbr == u then
             state.handle.write "<\(iriEncode u)>";
         else
-            state.handle.write "\(iriEncode abbr)";
+            state.handle.write "\(localEncode abbr)";
         fi;
     Blank b:
         state.handle.write "_:blank\(b)";

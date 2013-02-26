@@ -48,15 +48,19 @@ reBlank       = "(?:\(rePNCharsU)|[0-9])" ^
                 "(?:(?:\(rePNChars)|\\.)*" ^
                 "(?:\(rePNChars)))?";
 rePercent     = "(?:%[0-9A-Fa-f][0-9A-Fa-f])";
-rePNLocalEsc  = "(?:\\\\[_~.!$&'()*+,;=/?#@%-])";
+rePNLocalEscChars = "[_~.!$&'()*+,;=/?#@%-]";
+rePNLocalEsc  = "(?:\\\\\(rePNLocalEscChars))";
 rePlx         = "\(rePercent)|\(rePNLocalEsc)";
 rePNLocal     = "(?:(?:\(rePNCharsU)|[0-9:]|\(rePlx))" ^
                 "(?:(?:\(rePNChars)|\\.|:|\(rePlx))*" ^
                 "(?:\(rePNChars)|:|\(rePlx)))?)?";
 
+rangeIRIEsc    = "\\x00-\\x20<>\"{}|^`\\\\%";
+reIRIPartChars = "[^\(rangeIRIEsc)]";
+
 likeAZ        = like "^[a-zA-Z]*";
 likeAZLower   = like "^[a-z]*";
-likeIRIPart   = like "^[^\\x00-\\x20<>\"{}|^`\\\\%]*";
+likeIRIPart   = like "^\(reIRIPartChars)*";
 likeSlashU    = like "^\\\\[Uu]";
 likeDotInPN   = like "^\\.(?:\(rePNChars)|[:%\\.\\\\])";
 
@@ -79,6 +83,8 @@ likeSparqlBase = like "^[Bb][Aa][Ss][Ee]\\b";
 likeSparqlPfx = like "^[Pp][Rr][Ee][Ff][Ii][Xx]\\b";
 
 {
+rangeIRIEsc,
+rePNLocalEscChars,
 likeAZ, likeAZLower,
 likeIRIPart,
 likeSlashU,
