@@ -7,6 +7,7 @@ tests = [
     "index" : load test.test_index,
     "store" : load test.test_store,
     "prefix" : load test.test_prefix,
+    "collection" : load test.test_collection,
     "read" : load test.test_read,
 ];
 
