@@ -8,6 +8,7 @@ CLASSPATH	:= $(shell echo $(CLASSPATH) | tr ' ' ':')
 SOURCES		:= \
 	yertle/blank.yeti \
 	yertle/char.yeti \
+	yertle/collection.yeti \
 	yertle/index.yeti \
 	yertle/parsebits.yeti \
 	yertle/prefix.yeti \
@@ -18,8 +19,20 @@ SOURCES		:= \
 	yertle/write.yeti \
 	example/readwrite.yeti
 
-test/.run:	yertle.jar
-	java -cp $(CLASSPATH) yeti.lang.compiler.yeti test/all.yeti && touch $@
+TEST_SOURCES	:= \
+	test/all.yeti \
+	test/test_collection.yeti \
+	test/test_index.yeti \
+	test/test_prefix.yeti \
+	test/test_read.yeti \
+	test/test_spec.yeti \
+	test/test_store.yeti \
+	test/test_write.yeti \
+	test/test.yeti
+
+test/.run:	yertle.jar $(TEST_SOURCES)
+	java -cp $(CLASSPATH) yeti.lang.compiler.yeti test/all.yeti | tee $@.out
+	@grep -qv passed $@.out || touch $@
 
 yertle.jar:	$(SOURCES)
 	java -cp $(CLASSPATH) yeti.lang.compiler.yeti -d classes $^
