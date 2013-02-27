@@ -61,7 +61,7 @@ process base infile outfile =
     st = store.newRdfStore ();
     case time "load" \(read.loadParsedTriples st parsed) of
     OK ():
-        time "serialise" \(write.writeTurtleToFile outfile st);
+        time "serialise" \(write.writeToTurtleFile outfile st);
     Error e:
         eprintln "Failed to parse input file \"\(infile)\": \(e)";
     esac);

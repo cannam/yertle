@@ -37,7 +37,7 @@ module test.test_spec;
 
 { newRdfStore } = load yertle.store;
 { loadTurtleFileAsNewStore, parseTurtleFile } = load yertle.read;
-{ writeNTriplesToHandle } = load yertle.write;
+{ writeToNTriplesHandle } = load yertle.write;
 
 testFileDir = "test/ttl/spec";
 outFileDir = "test/out";
@@ -133,7 +133,7 @@ addTest mstore type p =
                         esac;
                     outfile = outFileDir ^ "/" ^ meta.result;
                     handle = openOutFile outfile "UTF-8";
-                    writeNTriplesToHandle handle fstore;
+                    writeToNTriplesHandle handle fstore;
                     handle.close ();
                     compareNTriples outfile (testPath meta.result))
             done;

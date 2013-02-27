@@ -37,7 +37,7 @@ module test.test_write;
 
 { newRdfStore } = load yertle.store;
 { loadTurtleFileAsNewStore, parseTurtleFile } = load yertle.read;
-{ writeTurtleToHandle } = load yertle.write;
+{ writeToTurtleFile } = load yertle.write;
 
 testFileDir = "test/ttl";
 specFileDir = "test/ttl/spec";
@@ -95,9 +95,7 @@ addTestForFile name filename filepath =
             Error e: println "Error: \(e)"; newRdfStore ();
             esac;
         outfile = outFileDir ^ "/" ^ filename;
-        handle = openOutFile outfile "UTF-8";
-        writeTurtleToHandle handle fstore;
-        handle.close ();
+        writeToTurtleFile outfile fstore;
         case loadTurtleFileAsNewStore (baseIri ^ filename) outfile of
         Store s:
             compareUnordered

@@ -265,17 +265,17 @@ sortByIri = sortBy
         esac;
     done;
 
-writeNTriplesToHandle handle store =
+writeToNTriplesHandle handle store =
     for (store.enumerate ()) do t:
         writeNTriple handle t;
         handle.write ".\n";
     done;
 
 //!!! need base
-writeNTriplesToFile filename store =
-    writeNTriplesToHandle (openOutFile filename "US-ASCII") store;
+writeToNTriplesFile filename store =
+    writeToNTriplesHandle (openOutFile filename "US-ASCII") store;
 
-writeTurtleToHandle handle store =
+writeToTurtleHandle handle store =
    (writePrefixes handle store;
     handle.write "\n";
     tt = store.enumerate ();
@@ -301,12 +301,12 @@ writeTurtleToHandle handle store =
     handle.close ());
 
 //!!! need base
-writeTurtleToFile filename store =
-    writeTurtleToHandle (openOutFile filename "UTF-8") store;
+writeToTurtleFile filename store =
+    writeToTurtleHandle (openOutFile filename "UTF-8") store;
 
 {
-  writeNTriplesToHandle,
-  writeNTriplesToFile,
-  writeTurtleToHandle,
-  writeTurtleToFile
+  writeToNTriplesHandle,
+  writeToNTriplesFile,
+  writeToTurtleHandle,
+  writeToTurtleFile
 }
