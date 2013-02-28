@@ -35,7 +35,7 @@ test/.run:	yertle.jar $(TEST_SOURCES)
 	@grep -qv passed $@.out || touch $@
 
 yertle.jar:	$(SOURCES)
-	java -cp $(CLASSPATH) yeti.lang.compiler.yeti -d classes $^
+	java -cp $(CLASSPATH) yeti.lang.compiler.yeti -d classes -doc doc $^
 	jar cf $@ -C classes yertle -C classes example
 
 clean:	

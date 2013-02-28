@@ -141,6 +141,10 @@ abbreviate' st iri =
         esac
     esac;
 
+{
+/**
+ * Create a new indexed RDF triple store object.
+ */
 newRdfStore () =
    (s = newStore ();
     sync = synchronized s;
@@ -156,19 +160,86 @@ newRdfStore () =
         expand str = sync \(expand' s str),
         abbreviate str = sync \(abbreviate' s str),
     } as {
+
+        /**
+         * Add a triple to the store.
+         *
+         * Example: 
+         * store.add { s = IRI "http://example.org/person/fred", p = store.expand "foaf:name", o = Literal { value = "Fred", type = "", language = "" } }
+         */
         add is triple -> (),
+        
+        /**
+         * Remove a triple from the store. Return true if the triple
+         * was successfully removed, false if not found in the store.
+         */
         remove is triple -> boolean,
+
+        /**
+         * Return a list of all triples in the store (in arbitrary
+         * order).
+         */
         enumerate is () -> list<triple>,
+
+        /**
+         * Test whether a triple is in the store.
+         */
         contains is triple -> boolean,
+
+        /**
+         * Given a pattern, return all triples in the store that
+         * match the pattern. Patterns may have Known or Wildcard 
+         *
+         * Example:
+         * store.match { s = Wildcard (), p = Known (store.expand "foaf:name"), o = Wildcard () }
+         */
         match is pattern -> list<triple>,
+
+        /**
+         * Add a prefix for future use by the expand and abbreviate
+         * functions.
+         *
+         * Example:
+         * store.addPrefix "foaf" "http://xmlns.com/foaf/0.1/"
+         */
         addPrefix is string -> string -> (),
+
+        /**
+         * Enquire whether the store knows about the given prefix.
+         */
         havePrefix is string -> boolean,
+
+        /**
+         * Return all the prefixes (prefix parts only) in the store.
+         */
         prefixes is () -> list<string>,
+
+        /**
+         * Expand a prefixed name into an IRI.
+         *
+         * Example:
+         * store.expand "foaf:name"
+         * 
+         * which will return (IRI "http://xmlns.com/foaf/0.1/name")
+         * if the foaf prefix has been added to this store (see
+         * addPrefix).
+         */
         expand is string -> iri,
+
+        /**
+         * Abbreviate an IRI into a prefixed name.
+         *
+         * Example:
+         * store.abbreviate (IRI "http://xmlns.com/foaf/0.1/name")
+         *
+         * which will return "foaf:name" if the foaf prefix has
+         * been added to this store (see addPrefix).
+         *
+         * If no known prefix matches the given IRI, the IRI will
+         * be returned unchanged (but as a plain string rather 
+         * than a tagged type).
+         */
         abbreviate is iri -> string
     });
-
-{
-    newRdfStore
 }
 
