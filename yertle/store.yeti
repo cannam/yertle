@@ -54,13 +54,19 @@ typedef triple = {
     .o is fullnode,
 };
 
-typedef tripleselector = triple -> fullnode;
+typedef fulltriple = {
+    .s is fullnode,
+    .p is fullnode,
+    .o is fullnode
+};
+
+typedef tripleselector = fulltriple -> fullnode;
 
 typedef fullpatnode = Wildcard. () | Known. fullnode;
 
 typedef pattern = {
-    .s is Wildcard. () | Known. (IRI. string | Blank. number),
-    .p is Wildcard. () | Known. (IRI. string),
+    .s is fullpatnode,
+    .p is fullpatnode,
     .o is fullpatnode,
 };
 
@@ -184,7 +190,7 @@ newRdfStore () =
         /**
          * Test whether a triple is in the store.
          */
-        contains is triple -> boolean,
+        contains is fulltriple -> boolean,
 
         /**
          * Given a pattern, return all triples in the store that
