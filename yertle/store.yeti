@@ -40,7 +40,7 @@ load yertle.types;
 
 typedef iri = IRI string;
 
-typedef fullnode =
+typedef node =
     IRI. string | Blank. number |
         Literal. { 
             .value is string,
@@ -49,33 +49,27 @@ typedef fullnode =
         };
 
 typedef triple = {
-    .s is IRI. string | Blank. number,
-    .p is IRI. string,
-    .o is fullnode,
+    .s is node,
+    .p is node,
+    .o is node
 };
 
-typedef fulltriple = {
-    .s is fullnode,
-    .p is fullnode,
-    .o is fullnode
-};
+typedef tripleselector = triple -> node;
 
-typedef tripleselector = fulltriple -> fullnode;
-
-typedef fullpatnode = Wildcard. () | Known. fullnode;
+typedef patnode = Wildcard. () | Known. node;
 
 typedef pattern = {
-    .s is fullpatnode,
-    .p is fullpatnode,
-    .o is fullpatnode,
+    .s is patnode,
+    .p is patnode,
+    .o is patnode,
 };
 
-typedef patternselector = pattern -> fullpatnode;
+typedef patternselector = pattern -> patnode;
 
-typedef indextree = hash<fullnode,
-                         Sub hash<fullnode,
-                                  Sub hash<fullnode,
-                                           Entry array<fullnode>>>>;
+typedef indextree = hash<node,
+                         Sub hash<node,
+                                  Sub hash<node,
+                                           Entry array<node>>>>;
 
 typedef index = {
     .order is list<tripleselector>,
@@ -190,7 +184,7 @@ newRdfStore () =
         /**
          * Test whether a triple is in the store.
          */
-        contains is fulltriple -> boolean,
+        contains is triple -> boolean,
 
         /**
          * Given a pattern, return all triples in the store that
@@ -228,7 +222,8 @@ newRdfStore () =
          * 
          * which will return (IRI "http://xmlns.com/foaf/0.1/name")
          * if the foaf prefix has been added to this store (see
-         * addPrefix).
+         * addPrefix). If the prefixed name has an unknown prefix, 
+         * it will be returned unexpanded.
          */
         expand is string -> iri,
 
