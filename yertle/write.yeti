@@ -40,9 +40,14 @@ load yertle.ttlre;
 
 import java.lang: Character;
 
+// ASCII characters valid in strings: cautiously \u-encode in strings
 asciiMatcher = matchAll "[^\\x20-\\x21\\x23-\\x5b\\x5d-\\x7e]" Escape Good;
+
+// pname local part: cautiously %-encode in pnames
 localMatcher = matchAll "[^\(rangePNBase)_:0-9]" Escape Good;
-percentMatcher = matchAll "[\(rangeIRIEsc)\\xa0-\\xff]" Escape Good;
+
+// IRIs: percent or u-escape all but non-reserved ASCII
+iriMatcher = matchAll "[^A-Za-z0-9!#$&'()*+,./:;=?@\\[\\]_~-]" Escape Good;
 
 applyEncoder encoder matcher text =
     strJoin ""
@@ -53,6 +58,17 @@ applyEncoder encoder matcher text =
          _: ""
          esac (matcher text));
 
+percentPrefix hexString = 
+    "%" ^ if (strLength hexString < 2) then "0" ^ hexString else hexString fi;
+
+uPrefix hexString =
+   (u = if (strLength hexString) < 5 then "u" else "U" fi;
+    n = if (strLength hexString) < 5 then 4 else 8 fi;
+    "\\\(u)" ^ (strPad "0" (n - strLength hexString) "") ^ hexString);
+
+hexStringFor c = 
+    strUpper Integer#toHexString(Character#codePointAt(c is string, 0));
+
 asciiEncode text =
    (encode c = 
         case c of 
@@ -61,11 +77,7 @@ asciiEncode text =
         "\r": "\\r";
         "\"": "\\\"";
         "\\": "\\\\";
-           _:
-           (s = Integer#toHexString(Character#codePointAt(c is string, 0));
-            u = if (strLength s) < 5 then "u" else "U" fi;
-            n = if (strLength s) < 5 then 4 else 8 fi;
-            "\\\(u)" ^ (strPad "0" (n - strLength s) "") ^ (strUpper s))
+           _: uPrefix (hexStringFor c);
         esac;
     applyEncoder encode asciiMatcher text);
 
@@ -73,12 +85,16 @@ percentEncode matcher text =
     // encoding chars that are ASCII but not legal unescaped in IRIs
     // in Turtle, and chars that are not ASCII but are legal code
     // points below 0xff
-   (encode c =
-       (s = strUpper Integer#toHexString(Character#codePointAt(c is string, 0));
-        "%" ^ if (strLength s < 2) then "0" ^ s else s fi);
+   (encode c = percentPrefix (hexStringFor c);
     applyEncoder encode matcher text);
 
-iriEncode = asciiEncode . (percentEncode percentMatcher);
+iriEncode text = 
+   (encode c = 
+       (s = hexStringFor c;
+        if (strLength s) < 3 then percentPrefix s
+        else uPrefix s
+        fi);
+    applyEncoder encode iriMatcher text);
 
 localEncode str = 
    (ix = strIndexOf str ":" 0;
