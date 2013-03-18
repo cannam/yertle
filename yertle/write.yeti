@@ -41,7 +41,6 @@ load yertle.ttlre;
 import java.lang: Character;
 
 asciiMatcher = matchAll "[^\\x20-\\x21\\x23-\\x5b\\x5d-\\x7e]" Escape Good;
-escChars = "~.!$&'()*+,;=/?#@%";
 localMatcher = matchAll "[^\(rangePNBase)_:0-9]" Escape Good;
 percentMatcher = matchAll "[\(rangeIRIEsc)\\xa0-\\xff]" Escape Good;
 
