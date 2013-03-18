@@ -41,8 +41,9 @@ load yertle.ttlre;
 import java.lang: Character;
 
 asciiMatcher = matchAll "[^\\x20-\\x21\\x23-\\x5b\\x5d-\\x7e]" Escape Good;
+escChars = "~.!$&'()*+,;=/?#@%";
+localMatcher = matchAll "[^\(rangePNBase)_:0-9]" Escape Good;
 percentMatcher = matchAll "[\(rangeIRIEsc)\\xa0-\\xff]" Escape Good;
-escMatcher = matchAll "[~.!$&'()*+,;=/?#@%]" Escape Good;
 
 applyEncoder encoder matcher text =
     strJoin ""
@@ -69,27 +70,28 @@ asciiEncode text =
         esac;
     applyEncoder encode asciiMatcher text);
 
-percentEncode text =
+percentEncode matcher text =
     // encoding chars that are ASCII but not legal unescaped in IRIs
     // in Turtle, and chars that are not ASCII but are legal code
     // points below 0xff
    (encode c =
        (s = strUpper Integer#toHexString(Character#codePointAt(c is string, 0));
         "%" ^ if (strLength s < 2) then "0" ^ s else s fi);
-    applyEncoder encode percentMatcher text);
+    applyEncoder encode matcher text);
 
-escEncode text =
-    // encoding chars that are allowed in pname local parts but only
-    // if escaped
-    applyEncoder do c: "\\" ^ c done escMatcher text;
-
-iriEncode = asciiEncode . percentEncode;
+iriEncode = asciiEncode . (percentEncode percentMatcher);
 
 localEncode str = 
    (ix = strIndexOf str ":" 0;
     if ix >= 0 then
-        (strLeft str ix) ^ 
-        ((escEncode . asciiEncode . percentEncode) (strRight str ix))
+        // We can't do percent encoding and then escape encoding (for
+        // the Turtle PLX rule) because that would give us \%NN where
+        // we need %NN. But we also can't do escape encoding and then
+        // percent encoding, because that would give us %5Cx where we
+        // need \x. Easiest thing is just to percent encode the
+        // escapable chars as well (which also gives compatibility
+        // with earlier Turtle specs).
+        (strLeft str (ix+1)) ^ (percentEncode localMatcher (strRight str (ix+1)))
     else
         str
     fi);

@@ -121,6 +121,7 @@ addTest mstore type p =
 for [
     "bnode-nested-2", "bnode-nested", "bnode", "boolean", "collections",
     "example1", "example2", "example3", "goblin", "iris", "numbers", "quoted",
+    "afghanistan"
 ]
 do n: addTestForFile "\(n)" "\(n).ttl" "\(testFileDir)/\(n).ttl" done;
 

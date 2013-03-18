@@ -83,6 +83,7 @@ likeSparqlBase = like "^[Bb][Aa][Ss][Ee]\\b";
 likeSparqlPfx = like "^[Pp][Rr][Ee][Ff][Ii][Xx]\\b";
 
 {
+rangePNBase,
 rangeIRIEsc,
 likeAZ, likeAZLower,
 likeIRIPart,
