@@ -187,11 +187,11 @@ pnameNS state =
 //!!! This is not strictly how you expand IRIs relative to a base (see
 //http://www.ietf.org/rfc/rfc3986.txt sec 5.2.2)
 resolved state iri =
-    if strStarts? "#" iri then state.fileIri ^ iri
+   (if strStarts? "#" iri then state.fileIri ^ iri
     elif matchAbsIRI iri then iri
     elif strStarts? "/" iri then state.baseIri ^ (strRight iri 1)
     else state.baseIri ^ iri
-    fi;
+    fi as ~String)#intern();
 
 withoutFile iri =
     if strEnds? iri "/" then iri
