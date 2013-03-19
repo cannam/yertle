@@ -43,12 +43,11 @@ Current status
    There are also a few additional tests covering things not covered
    by the spec tests, see test/test_read.yeti.
 
- * The serialiser generally works, but is not thoroughly enough tested.
+ * The serialiser successfully serialises all of the test files (plus
+   the odd additional test) such that they can be parsed in again.
 
- * The datastore can store and do indexed retrieval, but it lacks many
-   conveniences and the implementation is still in flux.
-
- * There's no build/package mechanism yet.
+ * The datastore can store and do indexed retrieval, but it has a
+   very basic API.
 
 To build and run the tests, just run the Yeti compiler (yc) on
 test/all.yeti.
@@ -63,5 +62,5 @@ Author
 ------
 
 Chris Cannam, cannam@all-day-breakfast.com
-February 2013
+March 2013
 
