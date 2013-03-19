@@ -715,16 +715,50 @@ newState reader fileIri =
 parse baseIri reader =
     document (newState reader baseIri);
 
+/**
+ * Parse the Turtle document with the given base IRI from the given
+ * input handle. Return a lazy list of parsed triples.
+ * 
+ * Each returned list element is either a Prefix-tagged pair
+ * containing namespace prefix and corresponding IRI, or a
+ * Triple-tagged { s, p, o } structure containing a parsed triple
+ * (with full IRIs, unabbreviated). If an error occurs during parsing,
+ * the final element will be an Error-tagged string instead.
+ */
 parseTurtleHandle baseIri handle = 
     parse baseIri (char.reader handle);
 
+/**
+ * Parse the Turtle document with the given base IRI from the given
+ * local file. Return a lazy list of parsed triples.
+ * 
+ * Each returned list element is either a Prefix-tagged pair
+ * containing namespace prefix and corresponding IRI, or a
+ * Triple-tagged { s, p, o } structure containing a parsed triple
+ * (with full IRIs, unabbreviated). If an error occurs during parsing,
+ * the final element will be an Error-tagged string instead.
+ */
 parseTurtleFile baseIri filename = 
     parseTurtleHandle baseIri (openInFile filename "UTF-8");
 
+/**
+ * Parse the Turtle document with the given base IRI found in the
+ * given string.
+ * 
+ * Each returned list element is either a Prefix-tagged pair
+ * containing namespace prefix and corresponding IRI, or a
+ * Triple-tagged { s, p, o } structure containing a parsed triple
+ * (with full IRIs, unabbreviated). If an error occurs during parsing,
+ * the final element will be an Error-tagged string instead.
+ */
 parseTurtleString baseIri str =
     parseTurtleHandle baseIri
         (readerHandle (new BufferedReader(new StringReader(str))));
 
+/**
+ * Load into the store st a series of parsed triples and namespace
+ * prefixes, in the format returned from the parse functions.
+ */
 loadParsedTriples st triples =
     fold
         do acc item:
@@ -746,11 +780,19 @@ loadParsedTriples st triples =
         (OK ())
         triples;
 
-// Load to an existing store
+/**
+ * Parse the Turtle document with the given base IRI from the given
+ * local file, loading its triples and prefixes directly into the
+ * store st.
+ */
 loadTurtleFile st baseIri filename =
     loadParsedTriples st (parseTurtleFile baseIri filename);
 
-// Load to a new store
+/**
+ * Parse the Turtle document with the given base IRI from the given
+ * local file, loading its triples and prefixes into a new store
+ * created with store.newRdfStore().
+ */
 loadTurtleFileAsNewStore baseIri filename = 
    (st = store.newRdfStore ();
     loadParsedTriples st (parseTurtleFile baseIri filename) ~> \(Store st));
