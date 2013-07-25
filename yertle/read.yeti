@@ -57,7 +57,7 @@ store = load yertle.store;
 load yertle.parsebits;
 load yertle.ttlre; // Regex matchers for Turtle lexical elements
 load yertle.blank;
-load yertle.types;
+load yertle.rdftypes;
 load yertle.collection;
 
 import java.lang: Character;

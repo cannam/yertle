@@ -36,7 +36,7 @@ module yertle.store;
 index = load yertle.index;
 
 load yertle.prefix;
-load yertle.types;
+load yertle.rdftypes;
 
 typedef iri = IRI string;
 

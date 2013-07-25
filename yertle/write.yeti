@@ -33,7 +33,7 @@
 
 module yertle.write;
 
-load yertle.types;
+load yertle.rdftypes;
 load yertle.ttlre;
 
 { isCollectionNode, triplesOfCollection } = load yertle.collection;

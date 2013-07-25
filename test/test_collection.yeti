@@ -38,7 +38,7 @@ module test.test_collection;
 
 { compare, compareUnordered } = load test.test;
 
-load yertle.types;
+load yertle.rdftypes;
 
 //!!! dup with test_write, but here it rather matters which blank node is which so we really need to replace them with actually counted ones
 obscureBlankNode n =

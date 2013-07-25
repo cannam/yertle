@@ -15,7 +15,7 @@ SOURCES		:= \
 	yertle/read.yeti \
 	yertle/store.yeti \
 	yertle/ttlre.yeti \
-	yertle/types.yeti \
+	yertle/rdftypes.yeti \
 	yertle/write.yeti \
 	example/readwrite.yeti
 

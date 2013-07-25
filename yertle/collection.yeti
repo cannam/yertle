@@ -33,7 +33,7 @@
 
 module yertle.collection;
 
-load yertle.types;
+load yertle.rdftypes;
 
 { newBlankNode } = load yertle.blank;
 
