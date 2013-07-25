@@ -81,7 +81,8 @@ metadata mstore iri =
 obscureBlankNode n =
     case n of 
     Blank _: Blank 1;
-    other: other;
+    IRI iri: IRI iri;
+    Literal lit: Literal lit;
     esac;
 
 obscureBlankNodes =

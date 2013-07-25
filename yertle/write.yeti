@@ -36,6 +36,8 @@ module yertle.write;
 rdftypes = load yertle.rdftypes;
 ttlre = load yertle.ttlre;
 
+load yertle.types;
+
 { isCollectionNode, triplesOfCollection } = load yertle.collection;
 
 import java.lang: Character;
@@ -321,9 +323,20 @@ writeToTurtleHandle handle store =
 writeToTurtleFile filename store =
     writeToTurtleHandle (openOutFile filename "UTF-8") store;
 
+// Type for a store that supports at least the functions needed to
+// stream from it. In practice, a full store (of store.yeti module)
+// will presumably be provided
+typedef storesource = {
+    .abbreviate is iri -> string,
+    .enumerate is () -> list<triple>,
+    .expand is string -> iri,
+    .match is pattern -> list<triple>,
+    .prefixes is () -> list<string>
+};
+
 {
-  writeToNTriplesHandle,
-  writeToNTriplesFile,
-  writeToTurtleHandle,
-  writeToTurtleFile
+  writeToNTriplesHandle is output_handle -> storesource -> (),
+  writeToNTriplesFile is string -> storesource -> (),
+  writeToTurtleHandle is output_handle -> storesource -> (),
+  writeToTurtleFile is string -> storesource -> (),
 }
