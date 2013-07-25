@@ -33,10 +33,7 @@
 
 module yertle.prefix;
 
-typedef ptable = {
-    .forward is hash<string, string>,
-    .inverse is hash<string, string>
-};
+load yertle.types;
 
 newPrefixTable () is () -> ptable = {
     forward = [:],
@@ -70,8 +67,6 @@ abbreviate ptab fullname =
     esac);
 
 prefixes ptab = keys ptab.forward;
-
-typedef opaque prefixtable = ptable;
 
 {
 newPrefixTable,

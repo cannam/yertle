@@ -35,8 +35,10 @@ module yertle.store;
 
 index = load yertle.index;
 
-load yertle.prefix;
-load yertle.rdftypes;
+prefix = load yertle.prefix;
+rdftypes = load yertle.rdftypes;
+
+load yertle.types;
 
 typedef iri = IRI string;
 
@@ -86,9 +88,9 @@ newStore () =
    (desired = [ "spo", "pos", "ops" ];
     orderMap = [ "s": (.s), "p": (.p), "o": (.o) ];
     patternOrderMap = [ "s": (.s), "p": (.p), "o": (.o) ];
-    prefixes = newPrefixTable ();
-    addPrefix prefixes "rdf" rdfPrefix;
-    addPrefix prefixes "xsd" xsdPrefix;
+    prefixes = prefix.newPrefixTable ();
+    prefix.addPrefix prefixes "rdf" rdftypes.rdfPrefix;
+    prefix.addPrefix prefixes "xsd" rdftypes.xsdPrefix;
     {
         prefixes,
         indexes =
@@ -119,23 +121,17 @@ contains st t =
 match st pat =
     index.match (index.chooseIndex st.indexes pat) pat;
 
-norec addPrefix st prefix full = addPrefix st.prefixes prefix full;
-
-norec havePrefix st prefix = havePrefix st.prefixes prefix;
-
-norec prefixes st = prefixes st.prefixes;
-
 expand' st pname = 
     if pname == "a" then 
         expand' st "rdf:type"
     else
-        IRI (expand st.prefixes pname);
+        IRI (prefix.expand st.prefixes pname);
     fi;
 
 abbreviate' st iri =
     case iri of
     IRI i:
-        case abbreviate st.prefixes i of
+        case prefix.abbreviate st.prefixes i of
         "rdf:type": "a";
              other: other
         esac
@@ -154,9 +150,9 @@ newRdfStore () =
         norec enumerate () = sync \(enumerate s),
         norec contains t = sync \(contains s t),
         norec match pat = sync \(match s pat),
-        norec addPrefix pfx exp = sync \(addPrefix s pfx exp),
-        norec havePrefix pfx = sync \(havePrefix s pfx),
-        norec prefixes () = sync \(prefixes s),
+        addPrefix pfx exp = sync \(prefix.addPrefix s.prefixes pfx exp),
+        havePrefix pfx = sync \(prefix.havePrefix s.prefixes pfx),
+        prefixes () = sync \(prefix.prefixes s.prefixes),
         expand str = sync \(expand' s str),
         abbreviate str = sync \(abbreviate' s str),
     } as {
