@@ -33,8 +33,8 @@
 
 module yertle.write;
 
-load yertle.rdftypes;
-load yertle.ttlre;
+rdftypes = load yertle.rdftypes;
+ttlre = load yertle.ttlre;
 
 { isCollectionNode, triplesOfCollection } = load yertle.collection;
 
@@ -44,7 +44,7 @@ import java.lang: Character;
 asciiMatcher = matchAll "[^\\x20-\\x21\\x23-\\x5b\\x5d-\\x7e]" Escape Good;
 
 // pname local part: cautiously %-encode in pnames
-localMatcher = matchAll "[^\(rangePNBase)_:0-9]" Escape Good;
+localMatcher = matchAll "[^\(ttlre.rangePNBase)_:0-9]" Escape Good;
 
 // IRIs: percent or u-escape all but non-reserved ASCII
 iriMatcher = matchAll "[^A-Za-z0-9!#$&'()*+,./:;=?@\\[\\]_~-]" Escape Good;
@@ -188,7 +188,7 @@ writeTurtleCollection state triple =
    (triples = triplesOfCollection state.store triple.o;
     state.handle.write " (";
     for triples do triple:
-        if triple.p == rdfFirstIRI then
+        if triple.p == rdftypes.rdfFirstIRI then
             state.handle.write " ";
             writeAbbreviatedNode state triple.o;
         fi;
