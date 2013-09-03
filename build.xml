@@ -1,0 +1,26 @@
+<project name="yertle" default="test" basedir=".">
+
+  <target name="taskdef">
+    <taskdef name="yetic" classname="yeti.lang.compiler.YetiTask"
+	     classpath="${basedir}/../yeti/yeti.jar" />
+  </target>
+
+  <target name="classes" depends="taskdef">
+    <yetic srcdir="${basedir}/yertle" destdir="${basedir}/classes"
+	   includes="*.yeti" preload="yeti/lang/std:yeti/lang/io"/>
+  </target>
+
+  <target name="jar" depends="classes,taskdef">
+    <jar jarfile="${basedir}/yertle.jar">
+      <fileset dir="${basedir}/classes"/>
+    </jar>
+  </target>
+
+  <target name="test" depends="jar,taskdef">
+    <java classpath="${basedir}/../yeti/yeti.jar:${basedir}/yertle.jar"
+	  classname="yeti.lang.compiler.yeti">
+      <arg value="test/all.yeti"/>
+    </java>
+  </target>
+
+</project>
