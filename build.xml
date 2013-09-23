@@ -6,8 +6,8 @@
   </target>
 
   <target name="classes" depends="taskdef">
-    <yetic srcdir="${basedir}/yertle" destdir="${basedir}/classes"
-	   includes="*.yeti" preload="yeti/lang/std:yeti/lang/io"/>
+    <yetic srcdir="${basedir}/src" destdir="${basedir}/classes"
+	   includes="**/*.yeti" preload="yeti/lang/std:yeti/lang/io"/>
   </target>
 
   <target name="jar" depends="classes,taskdef">
@@ -18,9 +18,13 @@
 
   <target name="test" depends="jar,taskdef">
     <java classpath="${basedir}/../yeti/yeti.jar:${basedir}/yertle.jar"
-	  classname="yeti.lang.compiler.yeti">
+	  classname="yeti.lang.compiler.yeti" failonerror="true">
       <arg value="test/all.yeti"/>
     </java>
+  </target>
+
+  <target name="clean">
+    <delete dir="${basedir}/classes"/>
   </target>
 
 </project>
