@@ -33,6 +33,8 @@
 
 module test.test_write;
 
+import java.io.FileNotFoundException;
+
 { compare, compareUnordered } = load test.test;
 
 { newRdfStore } = load yertle.store;
@@ -96,16 +98,22 @@ addTestForFile name filename filepath =
             Error e: println "Error: \(e)"; newRdfStore ();
             esac;
         outfile = outFileDir ^ "/" ^ filename;
+        \() (deleteFile outfile);
         writeToTurtleFile outfile fstore;
-        case loadTurtleFileAsNewStore (baseIri ^ filename) outfile of
-        Store s:
-            compareUnordered
-               (obscureBlankNodes (s.enumerate ()))
-               (obscureBlankNodes (fstore.enumerate ()));
-        Error e: 
-            println "** failed to reload file \"\(outfile)\" written by Turtle serialiser: \(e)";
+        try
+            case loadTurtleFileAsNewStore (baseIri ^ filename) outfile of
+            Store s:
+                compareUnordered
+                   (obscureBlankNodes (s.enumerate ()))
+                   (obscureBlankNodes (fstore.enumerate ()));
+            Error e: 
+                println "** failed to reload file \"\(outfile)\" written by Turtle serialiser: \(e)";
+                false;
+            esac;
+        catch FileNotFoundException ex:
+            println "** failed to reload file \"\(outfile)\": file not written at all! \(ex#getMessage())";
             false;
-        esac);
+        yrt);
 
 addTest mstore type p =
    (iri = p.s;
