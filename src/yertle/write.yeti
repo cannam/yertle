@@ -138,7 +138,7 @@ writeNTriple handle triple = // no state needed for NTriples
 writeAbbreviatedNode state node =
     case node of
     IRI u:
-        abbr = state.store.abbreviate node;
+        abbr = state.store.abbreviate (IRI u);
         if abbr == u then
             state.handle.write "<\(iriEncode u)>";
         else
@@ -229,7 +229,7 @@ writeTripleParts state triple =
     fi;
     state with { subject = Some triple.s, predicate = Some triple.p });
 
-hasBlankSubject t = case t.s of Blank _: true; IRI _: false esac;
+hasBlankSubject t = case t.s of Blank _: true; IRI _: false; Literal _: false esac;
 hasBlankObject t = case t.o of Blank _: true; IRI _: false; Literal _: false esac;
 
 isBlankObjectUnique state triple =
