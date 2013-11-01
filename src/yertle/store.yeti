@@ -56,7 +56,7 @@ typedef index = {
 };
 
 typedef storetype = {
-    .prefixes is prefixtable,
+    .prefixes is prefix.prefixtable,
     .indexes is list<index>,
 };
 
