@@ -38,22 +38,22 @@ typedef iri = IRI string;
 typedef node =
     IRI string | Blank number |
         Literal { 
-            .value is string,
-            .type is string,
-            .language is string
+            value is string,
+            type is string,
+            language is string
         };
 
 typedef triple = {
-    .s is node,
-    .p is node,
-    .o is node
+    s is node,
+    p is node,
+    o is node
 };
 typedef patnode = Wildcard () | Known node;
 
 typedef pattern = {
-    .s is patnode,
-    .p is patnode,
-    .o is patnode,
+    s is patnode,
+    p is patnode,
+    o is patnode,
 };
 
 ();
