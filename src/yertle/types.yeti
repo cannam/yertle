@@ -33,34 +33,27 @@
 
 module yertle.types;
 
-typedef ptable = {
-    .forward is hash<string, string>,
-    .inverse is hash<string, string>
-};
-
-typedef opaque prefixtable = ptable;
-
 typedef iri = IRI string;
 
 typedef node =
-    IRI. string | Blank. number |
-        Literal. { 
-            .value is string,
-            .type is string,
-            .language is string
+    IRI string | Blank number |
+        Literal { 
+            value is string,
+            type is string,
+            language is string
         };
 
 typedef triple = {
-    .s is node,
-    .p is node,
-    .o is node
+    s is node,
+    p is node,
+    o is node
 };
-typedef patnode = Wildcard. () | Known. node;
+typedef patnode = Wildcard () | Known node;
 
 typedef pattern = {
-    .s is patnode,
-    .p is patnode,
-    .o is patnode,
+    s is patnode,
+    p is patnode,
+    o is patnode,
 };
 
 ();

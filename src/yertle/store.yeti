@@ -50,14 +50,14 @@ typedef indextree = hash<node,
                                            Entry array<node>>>>;
 
 typedef index = {
-    .order is list<tripleselector>,
-    .patternOrder is list<patternselector>,
-    .tree is indextree
+    order is list<tripleselector>,
+    patternOrder is list<patternselector>,
+    tree is indextree
 };
 
 typedef storetype = {
-    .prefixes is prefixtable,
-    .indexes is list<index>,
+    prefixes is prefix.prefixtable,
+    indexes is list<index>,
 };
 
 newStore () = 
