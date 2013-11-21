@@ -18,7 +18,7 @@
 
   <target name="test" depends="jar,taskdef">
     <java classpath="${basedir}/../yeti/yeti.jar:${basedir}/yertle.jar"
-	  classname="yeti.lang.compiler.yeti" failonerror="true">
+	  classname="yeti.lang.compiler.yeti" fork="true" failonerror="true">
       <arg value="test/all.yeti"/>
     </java>
   </target>
