@@ -42,7 +42,7 @@ reader handle =
     var lineno = 0;
     var colno = 0;
 
-    ws c = (strIndexOf "\n\t\r " c 0 >= 0);
+    ws c = (c == " " or c == "\n" or c == "\t" or c == "\r");
     eol c = (c == "\n" or c == "\r");
 
     loadLine () = (line := handle.readln (); colno := 0; lineno := lineno + 1);
