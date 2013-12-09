@@ -54,6 +54,8 @@ module yertle.read;
 char = load yertle.char;
 store = load yertle.store;
 
+load yertle.types;
+
 load yertle.parsebits;
 load yertle.ttlre; // Regex matchers for Turtle lexical elements
 load yertle.blank;
@@ -805,10 +807,11 @@ loadTurtleFileAsNewStore baseIri filename =
     loadParsedTriples st (parseTurtleFile baseIri filename) ~> \(Store st));
 
 {
-parseTurtleHandle, 
-parseTurtleFile, 
-parseTurtleString, 
-loadParsedTriples,
-loadTurtleFile,
-loadTurtleFileAsNewStore
+parseTurtleHandle is string -> input_handle -> list<parsed>, 
+parseTurtleFile is string -> string -> list<parsed>, 
+parseTurtleString is string -> string -> list<parsed>, 
+loadParsedTriples is store_target -> list<parsed> -> Error string | OK (),
+loadTurtleFile is store_target -> string -> string -> Error string | OK (),
+loadTurtleFileAsNewStore is string -> string -> Error string | Store store,
 }
+

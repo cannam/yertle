@@ -121,42 +121,30 @@ newRdfStore () =
    (s = newStore ();
     sync = synchronized s;
     { 
-        norec add t = sync \(add s t),
-        norec remove t = sync \(remove s t),
-        norec enumerate () = sync \(enumerate s),
-        norec contains t = sync \(contains s t),
-        norec match pat = sync \(match s pat),
-        addPrefix pfx exp = sync \(prefix.addPrefix s.prefixes pfx exp),
-        havePrefix pfx = sync \(prefix.havePrefix s.prefixes pfx),
-        prefixes () = sync \(prefix.prefixes s.prefixes),
-        expand str = sync \(expand' s str),
-        abbreviate str = sync \(abbreviate' s str),
-    } as {
-
         /**
          * Add a triple to the store.
          *
          * Example: 
          * store.add { s = IRI "http://example.org/person/fred", p = store.expand "foaf:name", o = Literal { value = "Fred", type = "", language = "" } }
          */
-        add is triple -> (),
+        norec add t = sync \(add s t),
         
         /**
          * Remove a triple from the store. Return true if the triple
          * was successfully removed, false if not found in the store.
          */
-        remove is triple -> boolean,
+        norec remove t = sync \(remove s t),
 
         /**
          * Return a list of all triples in the store (in arbitrary
          * order).
          */
-        enumerate is () -> list<triple>,
+        norec enumerate () = sync \(enumerate s),
 
         /**
          * Test whether a triple is in the store.
          */
-        contains is triple -> boolean,
+        norec contains t = sync \(contains s t),
 
         /**
          * Given a pattern, return all triples in the store that
@@ -165,7 +153,7 @@ newRdfStore () =
          * Example:
          * store.match { s = Wildcard (), p = Known (store.expand "foaf:name"), o = Wildcard () }
          */
-        match is pattern -> list<triple>,
+        norec match pat = sync \(match s pat),
 
         /**
          * Add a prefix for future use by the expand and abbreviate
@@ -174,17 +162,17 @@ newRdfStore () =
          * Example:
          * store.addPrefix "foaf" "http://xmlns.com/foaf/0.1/"
          */
-        addPrefix is string -> string -> (),
+        addPrefix pfx exp = sync \(prefix.addPrefix s.prefixes pfx exp),
 
         /**
          * Enquire whether the store knows about the given prefix.
          */
-        havePrefix is string -> boolean,
+        havePrefix pfx = sync \(prefix.havePrefix s.prefixes pfx),
 
         /**
          * Return all the prefixes (prefix parts only) in the store.
          */
-        prefixes is () -> list<string>,
+        prefixes () = sync \(prefix.prefixes s.prefixes),
 
         /**
          * Expand a prefixed name into an IRI.
@@ -197,7 +185,7 @@ newRdfStore () =
          * addPrefix). If the prefixed name has an unknown prefix, 
          * it will be returned unexpanded.
          */
-        expand is string -> iri,
+        expand str = sync \(expand' s str),
 
         /**
          * Abbreviate an IRI into a prefixed name.
@@ -212,7 +200,8 @@ newRdfStore () =
          * be returned unchanged (but as a plain string rather 
          * than a tagged type).
          */
-        abbreviate is iri -> string
-    });
+        abbreviate str = sync \(abbreviate' s str),
+
+    } as store);
 }
 
