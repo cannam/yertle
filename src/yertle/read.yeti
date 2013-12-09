@@ -97,12 +97,15 @@ unicodeEscape state inIRI =
             esac
         );
 
+backslashEscapes = [
+    't': "\t", 'b': "\b", 'n': "\n", 'r': "\r", 'f': "\f",
+    '\': '\', '"': '"', "'": "'"
+];
+
 backslashEscape state = 
     required "\\" state ~>
-      \(escapes = [ 't': "\t", 'b': "\b", 'n': "\n", 'r': "\r", 'f': "\f",
-                    '\': '\', '"': '"', "'": "'" ];
-        if state.reader.next in escapes then
-            OK (Token escapes[state.reader.read ()]);
+      \(if state.reader.next in backslashEscapes then
+            OK (Token backslashEscapes[state.reader.read ()]);
         else
             Error "Unknown escape sequence at \(state.reader.location)"
         fi);
@@ -447,28 +450,30 @@ longStringBody quote state =
         else
             longStringBody' params (text ^ state.reader.read ()) state
         fi);
-    longStringBody' { qchar = quote,
-                      qlike = (like "^\(quote)\(quote)\(quote)"),
-                      matcher = (likeShortString quote)
-                    } "" state);
+    longStringBody' {
+        qchar = quote,
+        qlike = (like "^\(quote)\(quote)\(quote)"),
+        matcher = if quote == "'" then likeStringSingle else likeStringDouble fi
+    } "" state);
 
 shortStringBody quote state =
-   (shortStringBody' matcher acc state =
+   (matcher = if quote == "'" then likeStringSingle else likeStringDouble fi;
+    shortStringBody' acc state =
        (text = state.reader.readMatch matcher;
         if state.reader.lookingAt likeSlashU then
             unicodeEscape state false ~>
                \case of
-                Token t: shortStringBody' matcher (acc ^ text ^ t) state;
+                Token t: shortStringBody' (acc ^ text ^ t) state;
                 esac
         elif state.reader.lookingAt likeStringEscape then
             backslashEscape state ~>
                \case of
-                Token t: shortStringBody' matcher (acc ^ text ^ t) state;
+                Token t: shortStringBody' (acc ^ text ^ t) state;
                 esac
         else 
             OK (Token (acc ^ text))
         fi);
-    tokseq state [ shortStringBody' (likeShortString quote) "", required quote ]);
+    tokseq state [ shortStringBody' "", required quote ]);
 
 stringBody state =
     openQuote state ~>

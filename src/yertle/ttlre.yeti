@@ -65,7 +65,8 @@ likeSlashU    = like "^\\\\[Uu]";
 likeDotInPN   = like "^\\.(?:\(rePNChars)|[:%\\.\\\\])";
 likePNPart    = like "^[^#;,)\\]\\.\\\\\n\t\r ]*";
 
-likeShortString quote = like "^[^\\x5c\\x0a\\x0d\(quote)]*";
+likeStringSingle = like "^[^\\x5c\\x0a\\x0d']*";
+likeStringDouble = like "^[^\\x5c\\x0a\\x0d\"]*";
 likeStringEscape = like "^\\\\[tbnrf\\\\\"']";
 
 likeNumber    = like "^[0-9eE+-]*";
@@ -90,7 +91,7 @@ likeAZ, likeAZLower,
 likeIRIPart,
 likeSlashU,
 likeDotInPN, likePNPart,
-likeShortString, likeStringEscape,
+likeStringSingle, likeStringDouble, likeStringEscape,
 likeNumber, likeAfterDec, matchE,
 matchBlank, matchNonLit,
 matchAbsIRI, matchIRIChars,
