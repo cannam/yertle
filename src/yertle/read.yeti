@@ -152,12 +152,18 @@ iriref state =
                   required ">"]);
 
 pnameCandidate state =
+    // Read a thing that looks like a prefixed name. We don't test
+    // here whether it's well-formed, the resulting text is checked
+    // again by the caller depending on context.
    (pnameCandidate' acc r =
        (part = state.reader.readMatch likePNPart;
         n = r.next;
         if n == '.' and r.lookingAt likeDotInPN then
             pnameCandidate' (acc ^ part ^ r.read ()) r
         elif n == '\' then
+            // We need to preserve the '\' here (instead of
+            // unescaping) because only certain characters may be
+            // escaped, and the caller tests that
             pnameCandidate' (acc ^ part ^ r.read () ^ r.read ()) r
         else
             OK (Token (acc ^ part))
@@ -274,8 +280,13 @@ unescapeLocal local =
     unescapeLocal' "" local);
 
 prefixExpanded state text =
-    case matchAllPName text of
-    [M [whole, prefix, local]]:
+    // Our splitPName regex doesn't test the prefix part for
+    // well-formedness, because we immediately check whether the
+    // prefix is known, and a malformed prefix must be unknown (we
+    // tested for well-formedness when reading the namespaces). But it
+    // does check the local part for well-formedness.
+    case splitPName text of
+    [M [_, prefix, local]]:
         if prefix in state.prefixes then
             try
                 OK (IRI (resolved state

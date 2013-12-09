@@ -78,7 +78,7 @@ matchNonLit   = (=~ "[_(\\[<:\(rePNCharsBase)]");
 matchAbsIRI   = (=~ "^[a-zA-Z]+://");
 matchIRIChars = (=~ ("^[%a-zA-Z0-9\\._~:/?#\\[\\]@!$&'()*+,;=\\u00A0-\\uFFFF-]*$"));
 
-matchAllPName = matchAll "^(\(rePNPrefix))?:(\(rePNLocal))$" M T;
+splitPName = matchAll "^([^:]*):(\(rePNLocal))$" M T;
 
 likeSparqlBase = like "^[Bb][Aa][Ss][Ee]\\b";
 likeSparqlPfx = like "^[Pp][Rr][Ee][Ff][Ii][Xx]\\b";
@@ -94,7 +94,7 @@ likeShortString, likeStringEscape,
 likeNumber, likeAfterDec, matchE,
 matchBlank, matchNonLit,
 matchAbsIRI, matchIRIChars,
-matchPNPrefix, matchAllPName,
+matchPNPrefix, splitPName,
 likeSparqlBase, likeSparqlPfx
 }
 
