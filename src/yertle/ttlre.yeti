@@ -63,8 +63,10 @@ likeAZLower   = like "^[a-z]*";
 likeIRIPart   = like "^\(reIRIPartChars)*";
 likeSlashU    = like "^\\\\[Uu]";
 likeDotInPN   = like "^\\.(?:\(rePNChars)|[:%\\.\\\\])";
+likePNPart    = like "^[^#;,)\\]\\.\\\\\n\t\r ]*";
 
-likeShortString quote = like "^[^\\x5c\\x0a\\x0d\(quote)]*";
+likeStringSingle = like "^[^\\x5c\\x0a\\x0d']*";
+likeStringDouble = like "^[^\\x5c\\x0a\\x0d\"]*";
 likeStringEscape = like "^\\\\[tbnrf\\\\\"']";
 
 likeNumber    = like "^[0-9eE+-]*";
@@ -77,7 +79,7 @@ matchNonLit   = (=~ "[_(\\[<:\(rePNCharsBase)]");
 matchAbsIRI   = (=~ "^[a-zA-Z]+://");
 matchIRIChars = (=~ ("^[%a-zA-Z0-9\\._~:/?#\\[\\]@!$&'()*+,;=\\u00A0-\\uFFFF-]*$"));
 
-matchAllPName = matchAll "^(\(rePNPrefix))?:(\(rePNLocal))$" M T;
+splitPName = matchAll "^([^:]*):(\(rePNLocal))$" M T;
 
 likeSparqlBase = like "^[Bb][Aa][Ss][Ee]\\b";
 likeSparqlPfx = like "^[Pp][Rr][Ee][Ff][Ii][Xx]\\b";
@@ -88,12 +90,12 @@ rangeIRIEsc,
 likeAZ, likeAZLower,
 likeIRIPart,
 likeSlashU,
-likeDotInPN,
-likeShortString, likeStringEscape,
+likeDotInPN, likePNPart,
+likeStringSingle, likeStringDouble, likeStringEscape,
 likeNumber, likeAfterDec, matchE,
 matchBlank, matchNonLit,
 matchAbsIRI, matchIRIChars,
-matchPNPrefix, matchAllPName,
+matchPNPrefix, splitPName,
 likeSparqlBase, likeSparqlPfx
 }
 

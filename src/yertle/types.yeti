@@ -56,5 +56,43 @@ typedef pattern = {
     o is patnode,
 };
 
+typedef parsed = 
+    Error string | 
+    Prefix { fst is string, snd is string } | 
+    Triple triple;
+
+typedef store = {
+    add is triple -> (),
+    remove is triple -> boolean,
+    enumerate is () -> list<triple>,
+    contains is triple -> boolean,
+    match is pattern -> list<triple>,
+    addPrefix is string -> string -> (),
+    havePrefix is string -> boolean,
+    prefixes is () -> list<string>,
+    expand is string -> iri,
+    abbreviate is iri -> string
+};
+
+// Type for a store that supports at least the functions needed to
+// stream from it. In practice, a full store (of store.yeti module)
+// will presumably be provided
+typedef store_source = {
+    abbreviate is iri -> string,
+    enumerate is () -> list<triple>,
+    expand is string -> iri,
+    match is pattern -> list<triple>,
+    prefixes is () -> list<string>
+};
+
+// Type for a store that supports at least the functions needed to
+// parse into it. In practice, a full store (of store.yeti module)
+// will presumably be provided
+typedef store_target = {
+    add is triple -> (),
+    addPrefix is string -> string -> (),
+    havePrefix is string -> boolean,
+};
+
 ();
 

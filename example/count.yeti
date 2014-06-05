@@ -1,6 +1,6 @@
 /*
     Yertle
-    RDF/Turtle parser module
+    RDF/Turtle example code
 
     Copyright (c) 2013 Chris Cannam
     Copyright (c) 2013 Queen Mary, University of London
@@ -31,61 +31,44 @@
     authorization.
 */
 
-module yertle.char;
+program example.count;
 
-/**
- * Read lines from handle and make them available through a char-by-char
- * interface with optional regex consumption.
- */
-reader handle =
-   (var line = "";
-    var lineno = 0;
-    var colno = 0;
+// Parse a Turtle (or N-Triples) file and count the triples in it.
 
-    ws c = (c == " " or c == "\n" or c == "\t" or c == "\r");
-    eol c = (c == "\n" or c == "\r");
+read = load yertle.read;
 
-    loadLine () = (line := handle.readln (); colno := 0; lineno := lineno + 1);
+usage () =
+   (eprintln "\nUsage: count infile.ttl";
+    eprintln "\n   Counts the triples in infile.ttl (Turtle or N-Triples format)\n");
 
-    charAt n =
-        if n >= strLength line then "\n"
-        else strChar line n
-        fi;
+time description something =
+   (before = System#currentTimeMillis();
+    result = something ();
+    after = System#currentTimeMillis();
+    println "Time for \(description): \(after - before) ms";
+    result);
 
-    advance () =
-       (colno := colno + 1;
-        if colno > strLength line then loadLine () fi);
-
-    lookingAt likeMatcher =
-        not empty? (likeMatcher (strRight line colno) ());
-
-    match likeMatcher =
-        case likeMatcher (strRight line colno) () of
-        [match]: match;
-        _: "";
+countTriples n tt =
+    case tt of
+    first::rest:
+        case first of
+        Prefix pfx: countTriples n rest;
+        Triple t: countTriples (n+1) rest;
+        Error e: println "Error: \(e)"; -1;
         esac;
+    _: n
+    esac;
 
-    readMatch likeMatcher =
-       (m = match likeMatcher;
-        colno := colno + strLength m;
-        if colno > strLength line then loadLine () fi;
-        m);
+process infile =
+   (n = time "count" \(countTriples 0 (read.parseTurtleFile "" infile));
+    if n >= 0 then
+        println "Counted \(n) triple(s)"
+    else
+        println "Could not parse file"
+    fi);
 
-    loadLine ();
+case (list _argv) of
+infile::[]: process infile;
+_: usage ();
+esac;
 
-    {
-        get next () = charAt colno,
-        read () = (c = charAt colno; advance (); c),
-        discard () = advance (),
-        lookingAt,
-        match,
-        readMatch,
-        get isWhitespace () = ws (charAt colno),
-        get isEol () = eol (charAt colno),
-        get isEof () = not defined? line,
-        get location () = "line \(lineno), column \(colno)",
-        close () = handle.close();
-    }
-    );
-
-{ reader }

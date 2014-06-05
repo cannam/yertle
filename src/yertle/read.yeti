@@ -54,6 +54,8 @@ module yertle.read;
 char = load yertle.char;
 store = load yertle.store;
 
+load yertle.types;
+
 load yertle.parsebits;
 load yertle.ttlre; // Regex matchers for Turtle lexical elements
 load yertle.blank;
@@ -95,12 +97,15 @@ unicodeEscape state inIRI =
             esac
         );
 
+backslashEscapes = [
+    't': "\t", 'b': "\b", 'n': "\n", 'r': "\r", 'f': "\f",
+    '\': '\', '"': '"', "'": "'"
+];
+
 backslashEscape state = 
     required "\\" state ~>
-      \(escapes = [ 't': "\t", 'b': "\b", 'n': "\n", 'r': "\r", 'f': "\f",
-                    '\': '\', '"': '"', "'": "'" ];
-        if state.reader.next in escapes then
-            OK (Token escapes[state.reader.read ()]);
+      \(if state.reader.next in backslashEscapes then
+            OK (Token backslashEscapes[state.reader.read ()]);
         else
             Error "Unknown escape sequence at \(state.reader.location)"
         fi);
@@ -152,21 +157,23 @@ iriref state =
                   required ">"]);
 
 pnameCandidate state =
-   (pnameCandidate' escaped acc r =
-        if r.isWhitespace then
-            OK (Token acc)
-        elif not escaped then
-            if strIndexOf "#;,)]" r.next 0 >= 0 or
-               (r.next == "." and not r.lookingAt likeDotInPN) then
-                OK (Token acc)
-            else
-                escaped = (r.next == '\');
-                pnameCandidate' escaped (acc ^ r.read ()) r;
-            fi
+    // Read a thing that looks like a prefixed name. We don't test
+    // here whether it's well-formed, the resulting text is checked
+    // again by the caller depending on context.
+   (pnameCandidate' acc r =
+       (part = state.reader.readMatch likePNPart;
+        n = r.next;
+        if n == '.' and r.lookingAt likeDotInPN then
+            pnameCandidate' (acc ^ part ^ r.read ()) r
+        elif n == '\' then
+            // We need to preserve the '\' here (instead of
+            // unescaping) because only certain characters may be
+            // escaped, and the caller tests that
+            pnameCandidate' (acc ^ part ^ r.read () ^ r.read ()) r
         else
-            pnameCandidate' false (acc ^ r.read ()) r;
-        fi;
-    pnameCandidate' false "" state.reader);
+            OK (Token (acc ^ part))
+        fi);
+    pnameCandidate' "" state.reader);
 
 pnameNS state =
     pnameCandidate state ~>
@@ -278,8 +285,13 @@ unescapeLocal local =
     unescapeLocal' "" local);
 
 prefixExpanded state text =
-    case matchAllPName text of
-    [M [whole, prefix, local]]:
+    // Our splitPName regex doesn't test the prefix part for
+    // well-formedness, because we immediately check whether the
+    // prefix is known, and a malformed prefix must be unknown (we
+    // tested for well-formedness when reading the namespaces). But it
+    // does check the local part for well-formedness.
+    case splitPName text of
+    [M [_, prefix, local]]:
         if prefix in state.prefixes then
             try
                 OK (IRI (resolved state
@@ -438,28 +450,30 @@ longStringBody quote state =
         else
             longStringBody' params (text ^ state.reader.read ()) state
         fi);
-    longStringBody' { qchar = quote,
-                      qlike = (like "^\(quote)\(quote)\(quote)"),
-                      matcher = (likeShortString quote)
-                    } "" state);
+    longStringBody' {
+        qchar = quote,
+        qlike = (like "^\(quote)\(quote)\(quote)"),
+        matcher = if quote == "'" then likeStringSingle else likeStringDouble fi
+    } "" state);
 
 shortStringBody quote state =
-   (shortStringBody' matcher acc state =
+   (matcher = if quote == "'" then likeStringSingle else likeStringDouble fi;
+    shortStringBody' acc state =
        (text = state.reader.readMatch matcher;
         if state.reader.lookingAt likeSlashU then
             unicodeEscape state false ~>
                \case of
-                Token t: shortStringBody' matcher (acc ^ text ^ t) state;
+                Token t: shortStringBody' (acc ^ text ^ t) state;
                 esac
         elif state.reader.lookingAt likeStringEscape then
             backslashEscape state ~>
                \case of
-                Token t: shortStringBody' matcher (acc ^ text ^ t) state;
+                Token t: shortStringBody' (acc ^ text ^ t) state;
                 esac
         else 
             OK (Token (acc ^ text))
         fi);
-    tokseq state [ shortStringBody' (likeShortString quote) "", required quote ]);
+    tokseq state [ shortStringBody' "", required quote ]);
 
 stringBody state =
     openQuote state ~>
@@ -798,10 +812,11 @@ loadTurtleFileAsNewStore baseIri filename =
     loadParsedTriples st (parseTurtleFile baseIri filename) ~> \(Store st));
 
 {
-parseTurtleHandle, 
-parseTurtleFile, 
-parseTurtleString, 
-loadParsedTriples,
-loadTurtleFile,
-loadTurtleFileAsNewStore
+parseTurtleHandle is string -> input_handle -> list<parsed>, 
+parseTurtleFile is string -> string -> list<parsed>, 
+parseTurtleString is string -> string -> list<parsed>, 
+loadParsedTriples is store_target -> list<parsed> -> Error string | OK (),
+loadTurtleFile is store_target -> string -> string -> Error string | OK (),
+loadTurtleFileAsNewStore is string -> string -> Error string | Store store,
 }
+

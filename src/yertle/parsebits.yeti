@@ -78,7 +78,10 @@ tokseq state seq =
             esac;
         _: acc;
         esac;
-    tokseq' (Error "No token found at \(state.reader.location)") state seq);
+    case tokseq' (Error "") state seq of
+    Error _: Error "No token found at \(state.reader.location)";
+    other: other;
+    esac);
 
 { whitespace, chomp, required, ~>, noseq, tokseq }
 
