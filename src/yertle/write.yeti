@@ -260,6 +260,7 @@ writeTurtleTripleMaybe state triple =
     fi;
 
 writePrefixes handle store =
+//!!! NB should really write only those prefixes actually used by triples being written...
     for (store.prefixes ()) do pfx:
         case store.expand (pfx ^ ":") of
         IRI iri: 
