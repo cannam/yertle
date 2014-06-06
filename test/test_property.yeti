@@ -42,6 +42,7 @@ testFile = "test/ttl/goblin.ttl";
 outFile = "test/out/propertytest.ttl";
 baseIri = ""; // it's specified in the file
 goblinNode = IRI "http://example.org/#green-goblin";
+spiderNode = IRI "http://example.org/#spiderman";
 
 // we complete the read-store-property-write cycle each time so as to
 // stress the type checker as thoroughly as possible
@@ -55,6 +56,22 @@ tests = [
     OK (): 
        (p = property.textProperty s goblinNode "foaf:name";
         if p != "Green Goblin" then
+            println "** unexpected property value: \"\(p)\"";
+            false;
+        else
+            write.writeToTurtleFile outFile s;
+            true;
+        fi);
+    esac;
+),
+
+"textsProperty": \(
+    s = store.newRdfStore ();
+    case read.loadTurtleFile s baseIri testFile of
+    Error s: failWith s;
+    OK (): 
+       (p = property.textsProperty s goblinNode "foaf:name";
+        if p != [ "Green Goblin" ] then
             println "** unexpected property value: \"\(p)\"";
             false;
         else
@@ -87,6 +104,22 @@ tests = [
     esac;
 ),
 
+"irisProperty": \(
+    s = store.newRdfStore ();
+    case read.loadTurtleFile s baseIri testFile of
+    Error s: failWith s;
+    OK (): 
+       (si = property.irisProperty s goblinNode "rel:enemyOf";
+        if si != [ spiderNode ] then
+            println "** unexpected iri property list \(si)";
+            false;
+        else
+            write.writeToTurtleFile outFile s;
+            true;
+        fi);
+    esac;
+),
+
 "nodeProperty": \(
     s = store.newRdfStore ();
     case read.loadTurtleFile s baseIri testFile of
@@ -116,6 +149,22 @@ tests = [
            (println "** node property is absent";
             false);
         esac);
+    esac;
+),
+
+"nodesProperty": \(
+    s = store.newRdfStore ();
+    case read.loadTurtleFile s baseIri testFile of
+    Error s: failWith s;
+    OK (): 
+       (sp = property.nodesProperty s goblinNode "rel:enemyOf";
+        if sp != [ spiderNode ] then
+            println "** unexpected node property list \(sp)";
+            false;
+        else
+            write.writeToTurtleFile outFile s;
+            true;
+        fi);
     esac;
 )
 

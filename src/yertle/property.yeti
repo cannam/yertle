@@ -46,6 +46,18 @@ textProperty store subject name =
      _: "";
     esac;
 
+textsProperty store subject name =
+    concatMap do r:
+        case r of
+        { o = Literal { value = text } }: [ text ];
+        { o = _ }: [];
+        _: [];
+        esac;
+    done
+       (store.match {
+            s = Known subject, p = Known (store.expand name), o = Wildcard ()
+        });
+
 iriProperty store subject name =
     case store.match {
         s = Known subject, p = Known (store.expand name), o = Wildcard ()
@@ -53,6 +65,18 @@ iriProperty store subject name =
     { o = IRI iri }::others: IRI iri;
      _: None ();
     esac;
+
+irisProperty store subject name =
+    concatMap do r:
+        case r of
+        { o = IRI iri }: [ IRI iri ];
+        { o = _ }: [];
+        _: [];
+        esac;
+    done
+       (store.match {
+            s = Known subject, p = Known (store.expand name), o = Wildcard ()
+        });
 
 nodeProperty store subject name =
     case store.match {
@@ -63,11 +87,27 @@ nodeProperty store subject name =
      _: None ();
     esac;
 
+nodesProperty store subject name =
+    concatMap do r:
+        case r of 
+        { o = IRI iri }: [ IRI iri ];
+        { o = Blank n }: [ Blank n ];
+        { o = _ }: [];
+        _: []
+        esac
+    done 
+       (store.match {
+            s = Known subject, p = Known (store.expand name), o = Wildcard ()
+        });
+
 typedef maybe_iri = IRI string | None ();
 typedef maybe_node = Some node | None ();
 
 {
     textProperty is store -> node -> string -> string,
+    textsProperty is store -> node -> string -> list<string>,
     iriProperty is store -> node -> string -> maybe_iri, 
+    irisProperty is store -> node -> string -> list<iri>, 
     nodeProperty is store -> node -> string -> maybe_node,
+    nodesProperty is store -> node -> string -> list<node>,
 }
