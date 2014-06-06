@@ -9,6 +9,7 @@ tests = [
     "prefix" : load test.test_prefix,
     "collection" : load test.test_collection,
     "read" : load test.test_read,
+    "property" : load test.test_property,
 ];
 
 bad = sum (mapHash do name testHash: runTests name testHash done tests);
