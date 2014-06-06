@@ -40,8 +40,8 @@ property = load yertle.property;
 
 testFile = "test/ttl/goblin.ttl";
 outFile = "test/out/propertytest.ttl";
-baseIri = "http://example/base/";
-goblinNode = IRI "\(baseIri)#green-goblin";
+baseIri = ""; // it's specified in the file
+goblinNode = IRI "http://example.org/#green-goblin";
 
 // we complete the read-store-property-write cycle each time so as to
 // stress the type checker as thoroughly as possible
@@ -55,7 +55,7 @@ tests = [
     OK (): 
        (p = property.textProperty s goblinNode "foaf:name";
         if p != "Green Goblin" then
-            println "** unexpected property value: \(p)";
+            println "** unexpected property value: \"\(p)\"";
             false;
         else
             write.writeToTurtleFile outFile s;
@@ -74,7 +74,7 @@ tests = [
         IRI i:
            (gp = property.iriProperty s (IRI i) "rel:enemyOf";
             if (gp != goblinNode) then
-                println "** unexpected property node: \(gp) (expected: \(goblinNode)";
+                println "** unexpected property node: \(gp) (expected: \(goblinNode))";
                 false;
             else
                 write.writeToTurtleFile outFile s;
@@ -96,13 +96,19 @@ tests = [
         case sp of
         Some (IRI si):
            (gp = property.nodeProperty s (IRI si) "rel:enemyOf";
-            if (gp != goblinNode) then
-                println "** unexpected property node: \(gp) (expected: \(goblinNode)";
-                false;
-            else
-                write.writeToTurtleFile outFile s;
-                true;
-            fi);
+            case gp of
+            Some gn:
+                if (gn != goblinNode) then
+                    println "** unexpected property node: \(gn) (expected: \(goblinNode)";
+                    false;
+                else
+                    write.writeToTurtleFile outFile s;
+                    true;
+                fi;
+            _:
+               (println "** inverse node property is absent";
+                false);
+            esac);
         Some _:
            (println "** node property is the wrong type: \(sp)";
             false);
