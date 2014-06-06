@@ -70,7 +70,7 @@ typedef store = {
     addPrefix is string -> string -> (),
     havePrefix is string -> boolean,
     prefixes is () -> list<string>,
-    expand is string -> iri,
+    expand is string -> node,
     abbreviate is iri -> string
 };
 
@@ -80,7 +80,7 @@ typedef store = {
 typedef store_source = {
     abbreviate is iri -> string,
     enumerate is () -> list<triple>,
-    expand is string -> iri,
+    expand is string -> node,
     match is pattern -> list<triple>,
     prefixes is () -> list<string>
 };

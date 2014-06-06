@@ -264,7 +264,9 @@ writePrefixes handle store =
     for (store.prefixes ()) do pfx:
         case store.expand (pfx ^ ":") of
         IRI iri: 
-            handle.write "@prefix \(pfx): <\(iri)> .\n"
+            handle.write "@prefix \(pfx): <\(iri)> .\n";
+        other:
+            failWith "Internal error: Store prefix is not an IRI: \(other)";
         esac
     done;
 

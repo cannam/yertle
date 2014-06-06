@@ -81,7 +81,7 @@ newStore () =
 
 add st t =
     if all id (map do ix: index.add ix t done st.indexes) then ()
-    else throw new Exception("Internal error: add failed for \(t) in \(st)");
+    else failWith "Internal error: add failed for \(t) in \(st)";
     fi;
 
 remove st t =

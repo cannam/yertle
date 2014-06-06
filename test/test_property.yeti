@@ -72,7 +72,7 @@ tests = [
        (si = property.iriProperty s goblinNode "rel:enemyOf";
         case si of
         IRI i:
-           (gp = property.iriProperty s si "rel:enemyOf";
+           (gp = property.iriProperty s (IRI i) "rel:enemyOf";
             if (gp != goblinNode) then
                 println "** unexpected property node: \(gp) (expected: \(goblinNode)";
                 false;
@@ -81,7 +81,7 @@ tests = [
                 true;
             fi);
         _:
-           (println "** iri property is not the expected iri: \(sp)";
+           (println "** iri property is not the expected iri: \(si)";
             false);
         esac);
     esac;
@@ -94,7 +94,7 @@ tests = [
     OK (): 
        (sp = property.nodeProperty s goblinNode "rel:enemyOf";
         case sp of
-        Some IRI si:
+        Some (IRI si):
            (gp = property.nodeProperty s (IRI si) "rel:enemyOf";
             if (gp != goblinNode) then
                 println "** unexpected property node: \(gp) (expected: \(goblinNode)";
@@ -103,8 +103,11 @@ tests = [
                 write.writeToTurtleFile outFile s;
                 true;
             fi);
+        Some _:
+           (println "** node property is the wrong type: \(sp)";
+            false);
         _:
-           (println "** node property is not the expected iri: \(sp)";
+           (println "** node property is absent";
             false);
         esac);
     esac;
