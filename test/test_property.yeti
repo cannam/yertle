@@ -86,21 +86,25 @@ tests = [
     case read.loadTurtleFile s baseIri testFile of
     Error s: failWith s;
     OK (): 
-       (si = property.iriProperty s goblinNode "rel:enemyOf";
-        case si of
+        case property.iriProperty s goblinNode "rel:enemyOf" of
         IRI i:
-           (gp = property.iriProperty s (IRI i) "rel:enemyOf";
-            if (gp != goblinNode) then
-                println "** unexpected property node: \(gp) (expected: \(goblinNode))";
-                false;
-            else
-                write.writeToTurtleFile outFile s;
-                true;
-            fi);
-        _:
-           (println "** iri property is not the expected iri: \(si)";
+            case property.iriProperty s (IRI i) "rel:enemyOf" of
+            IRI g:
+                if (IRI g != goblinNode) then
+                    println "** unexpected property node: \(IRI g) (expected: \(goblinNode))";
+                    false;
+                else
+                    write.writeToTurtleFile outFile s;
+                    true;
+                fi;
+            x:
+               (println "** iri property (\(x)) is not an iri [2]";
+                false);
+            esac;
+        x:
+           (println "** iri property (\(x)) is not an iri";
             false);
-        esac);
+        esac;
     esac;
 ),
 

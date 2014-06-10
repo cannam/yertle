@@ -38,14 +38,6 @@ load yertle.types;
 // Simple lookup of property values given a store, a subject node, and
 // a predicate name (to be prefix-expanded).
 
-textProperty store subject name =
-    case store.match {
-        s = Known subject, p = Known (store.expand name), o = Wildcard ()
-        } of
-    { o = Literal { value = text } }::others: text;
-     _: "";
-    esac;
-
 textsProperty store subject name =
     concatMap do r:
         case r of
@@ -58,12 +50,10 @@ textsProperty store subject name =
             s = Known subject, p = Known (store.expand name), o = Wildcard ()
         });
 
-iriProperty store subject name =
-    case store.match {
-        s = Known subject, p = Known (store.expand name), o = Wildcard ()
-        } of
-    { o = IRI iri }::others: IRI iri;
-     _: None ();
+textProperty store subject name =
+    case textsProperty store subject name of
+    first::_: first;
+    _: "";
     esac;
 
 irisProperty store subject name =
@@ -78,13 +68,10 @@ irisProperty store subject name =
             s = Known subject, p = Known (store.expand name), o = Wildcard ()
         });
 
-nodeProperty store subject name =
-    case store.match {
-        s = Known subject, p = Known (store.expand name), o = Wildcard ()
-        } of
-    { o = IRI iri }::others: Some (IRI iri);
-    { o = Blank n }::others: Some (Blank n);
-     _: None ();
+iriProperty store subject name =
+    case irisProperty store subject name of
+    first::_: first;
+    _: None ();
     esac;
 
 nodesProperty store subject name =
@@ -99,6 +86,12 @@ nodesProperty store subject name =
        (store.match {
             s = Known subject, p = Known (store.expand name), o = Wildcard ()
         });
+
+nodeProperty store subject name =
+    case nodesProperty store subject name of
+    first::_: Some first;
+    _: None ();
+    esac;
 
 typedef maybe_iri = IRI string | None ();
 typedef maybe_node = Some node | None ();
