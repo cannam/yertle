@@ -507,13 +507,15 @@ rdfLiteral state =
         esac;
 
 numericCandidate state =
-   (n = state.reader.readMatch likeNumber;
-    if state.reader.lookingAt likeAfterDec then
-        state.reader.discard ();
-        nn = state.reader.readMatch likeNumber;
-        OK (Token (n ^ "." ^ nn));
-    else
-        OK (Token n);
+   (n = (state.reader.readMatch likeNumber ^
+         if state.reader.lookingAt likeAfterDec then
+             state.reader.discard ();
+             "." ^ (state.reader.readMatch likeNumber)
+         else ""
+         fi);
+    if (strEnds? n "e" or strEnds? n "E")
+    then Error "Exponent missing at \(state.reader.location)"
+    else OK (Token n)
     fi);
 
 // Adapt the Turtle numeric literal syntax into something that Yeti's
