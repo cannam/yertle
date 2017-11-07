@@ -72,8 +72,8 @@ newStore () =
         indexes =
             map do name:
                 index.newIndex
-                    (map (at orderMap) (tail (strSplit "" name)))
-                    (map (at patternOrderMap) (tail (strSplit "" name)))
+                    (map (at orderMap) (strSplit "" name))
+                    (map (at patternOrderMap) (strSplit "" name))
                 done
                 desired
     }
